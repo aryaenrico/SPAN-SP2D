@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?><soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"><soapenv:Header><wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" soapenv:mustUnderstand="1"><wsse:BinarySecurityToken xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary" ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3" wsu:Id="CertId-2DDA416AF1EE3CBEBE166374035883136472">MIIEKzCCA5SgAwIBAgICAR8wDQYJKoZIhvcNAQEFBQAwgboxHzAdBgNVBAMTFmNvcmUuc3Bhbi5kZXBrZXUuZ28uaWQxMDAuBgNVBAsTJ0RlcGFydGVtZW4gUGVuZ2Vsb2xhYW4gU2lzdGVtIEluZm9ybWFzaTENMAsGA1UEChMEU3BhbjEQMA4GA1UEBxMHSmFrYXJ0YTEUMBIGA1UECBMLREtJIEpha2FydGExCzAJBgNVBAYTAklEMSEwHwYJKoZIhvcNAQkBFhJzcGFuQGthbW5rZXUuZ28uaWQwHhcNMTUwMzE2MDIxOTAxWhcNMzUwMzExMDIxOTAxWjCBqDELMAkGA1UEBhMCSUQxFDASBgNVBAgTC0RLSSBKYWthcnRhMQ0wCwYDVQQKEwRTcGFuMTAwLgYDVQQLEydEZXBhcnRlbWVuIFBlbmdlbG9sYWFuIFNpc3RlbSBJbmZvcm1hc2kxHzAdBgNVBAMTFmNvcmUuc3Bhbi5kZXBrZXUuZ28uaWQxITAfBgkqhkiG9w0BCQEWEnNwYW5Aa2FtbmtldS5nby5pZDCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAqLZHir3pmUmeJz1/q7t4wIeqS5WnC/MViVfmdeEQlaKtPfOsQoLF/Q+c5TeMSx5amNnAIl48/kReHMzp2uCZ5mvmxq2FMllmEN48/hIQwAaK+IiwPXnIvist/6qz2AFcFF7iw1L+TDKjkbcONNPzwDa6faF9c67chR46Lvh7sOECAwEAAaOCAU4wggFKMAkGA1UdEwQCMAAwLAYJYIZIAYb4QgENBB8WHU9wZW5TU0wgR2VuZXJhdGVkIENlcnRpZmljYXRlMB0GA1UdDgQWBBSrtr0/1FkfMvg5bm4xXOCl9/YNEjCB7wYDVR0jBIHnMIHkgBRonyTtrbWCQZyvM6omFR2Q5R7vOqGBwKSBvTCBujEfMB0GA1UEAxMWY29yZS5zcGFuLmRlcGtldS5nby5pZDEwMC4GA1UECxMnRGVwYXJ0ZW1lbiBQZW5nZWxvbGFhbiBTaXN0ZW0gSW5mb3JtYXNpMQ0wCwYDVQQKEwRTcGFuMRAwDgYDVQQHEwdKYWthcnRhMRQwEgYDVQQIEwtES0kgSmFrYXJ0YTELMAkGA1UEBhMCSUQxITAfBgkqhkiG9w0BCQEWEnNwYW5Aa2FtbmtldS5nby5pZIIJAPPsZCGmQqAzMA0GCSqGSIb3DQEBBQUAA4GBAGJESdc/4c1AMAW4TCu69yIo89GRlj86esBBN3ANA02YH5OF8v6zs9a3Y9PTtlxrZ7jA8vvMxEz+MQzLxOhNIvwtUfcdWc8m1UQsaQmtDEhJyOhzc+OTbo1sQV11M/0oJLCtPNzyNsiGFE7F3qnXz88/T4DOhXS2i7MwyVTDRlaN</wsse:BinarySecurityToken><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Id="Signature-24315">
+<ds:SignedInfo>
+<ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+<ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
+<ds:Reference URI="#id-24316">
+<ds:Transforms>
+<ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+</ds:Transforms>
+<ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
+<ds:DigestValue>hpFhJhXkmIWTUB/VM4enLbb1dqU=</ds:DigestValue>
+</ds:Reference>
+</ds:SignedInfo>
+<ds:SignatureValue>
+X3C6PObWOGRqSLBin+68kPl3Z/qsC+5otU+Xss6QSTaEMcP5XxO1yTs5xLaIMeiOfXdY+FBdeQQ3
+ffDaNXotk9Zyc6XoCvWQvAe1Uh4Ae/pZeXYhVlznl/RercSoGsn3987B/PDFXkglkPGMaOLYCK0O
+8QL8GjfsVVoFbcO7l70=
+</ds:SignatureValue>
+<ds:KeyInfo Id="KeyId-2DDA416AF1EE3CBEBE166374035883136473">
+<wsse:SecurityTokenReference xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" wsu:Id="STRId-2DDA416AF1EE3CBEBE166374035883136474"><wsse:Reference URI="#CertId-2DDA416AF1EE3CBEBE166374035883136472" ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3"/></wsse:SecurityTokenReference>
+</ds:KeyInfo>
+</ds:Signature></wsse:Security></soapenv:Header>
+ <soapenv:Body xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" wsu:Id="id-24316">
+  <SP2D>
+   <ApplicationArea>
+    <ApplicationAreaSenderIdentifier>SPAN</ApplicationAreaSenderIdentifier>
+    <ApplicationAreaReceiverIdentifier>BSI</ApplicationAreaReceiverIdentifier>
+    <ApplicationAreaDetailSenderIdentifier/>
+    <ApplicationAreaDetailReceiverIdentifier/>
+    <ApplicationAreaCreationDateTime>2022-09-21 13:05:58</ApplicationAreaCreationDateTime>
+    <ApplicationAreaMessageIdentifier>525451000990_SP2D_O_20220921_130509_073.xml</ApplicationAreaMessageIdentifier>
+    <ApplicationAreaMessageTypeIndicator>SP2D</ApplicationAreaMessageTypeIndicator>
+    <ApplicationAreaMessageVersionText>1.0</ApplicationAreaMessageVersionText>
+   </ApplicationArea>
+   <DataArea>
+    <DocumentDate>2022-09-21</DocumentDate>
+    <DocumentNumber>220191305000044000001</DocumentNumber>
+    <BeneficiaryName>SIGMA SOLUSI INTEGRASI PT</BeneficiaryName>
+    <BeneficiaryBankCode>520009000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK NEGARA INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>0149313196</BeneficiaryAccount>
+    <Amount>1000050000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran untuk Testing UAT BO I BSI-Skenario 6</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7890789026</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUN P SPAN BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>1</PaymentMethod>
+    <SP2DCount>2</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-09-21</DocumentDate>
+    <DocumentNumber>220191305000044000002</DocumentNumber>
+    <BeneficiaryName>SIGMA SOLUSI INTEGRASI PT</BeneficiaryName>
+    <BeneficiaryBankCode>520009000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK NEGARA INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>0149313196</BeneficiaryAccount>
+    <Amount>50000000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran untuk Testing UAT BO I BSI-Skenario 6</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7890789026</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUN P SPAN BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>2</PaymentMethod>
+    <SP2DCount>2</SP2DCount>
+   </DataArea>
+   <Footer>
+    <TotalCount>2</TotalCount>
+    <TotalAmount>1050050000</TotalAmount>
+    <TotalBatchCount>2</TotalBatchCount>
+   </Footer>
+  </SP2D>
+ </soapenv:Body>
+</soapenv:Envelope>

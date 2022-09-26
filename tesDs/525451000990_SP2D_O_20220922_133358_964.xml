@@ -1,0 +1,440 @@
+<?xml version="1.0" encoding="UTF-8"?><soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"><soapenv:Header><wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" soapenv:mustUnderstand="1"><wsse:BinarySecurityToken xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary" ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3" wsu:Id="CertId-41DE381BBAF96569E61663828515953188215">MIIEVzCCAj+gAwIBAgIRAOGFSnvubJmjaqVlrF+hkA8wDQYJKoZIhvcNAQEFBQAwYTELMAkGA1UEBhMCSUQxETAPBgNVBAoTCFB1c2ludGVrMR0wGwYDVQQLExRLZW1lbnRlcmlhbiBLZXVhbmdhbjEgMB4GA1UEAxMXUHVzaW50ZWsgRXh0ZXJuYWwgQ0EgMDEwHhcNMTMwODI4MDczNTQxWhcNMzAwODI4MDczNDAwWjCBojELMAkGA1UEBhMCSUQxEDAOBgNVBAgTB0pha2FydGExEDAOBgNVBAcTB0pha2FydGExHTAbBgNVBAoTFEtlbWVudGVyaWFuIEtldWFuZ2FuMS8wLQYDVQQLEyZEaXJla3RvcmF0IFRyYW5zZm9ybWFzaSBQZXJiZW5kYWhhcmFhbjEfMB0GA1UEAxMWY29yZS5zcGFuLmRlcGtldS5nby5pZDCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAlnWLWcZwiSawVchF/hzID2pYpCJQc2ThGK0iVNWAy33VJTYDdfMXnYX5fW0EaU9kCCzykmNIQoaspoaW/SLkMTYi4tjfSpjaCeVFCfP7/XHARbdRQ6QLcfwNeTdSGSDtsW+9GUFgPw9A8/nVIH+SbjmNvBDRRVzzSklN3uwNJR8CAwEAAaNMMEowSAYDVR0fBEEwPzA9oDugOYY3aHR0cDovL0NBMS5kZXBrZXUuZ28uaWQ6NDQ3L1B1c2ludGVrX0V4dGVybmFsX0NBXzAxLmNybDANBgkqhkiG9w0BAQUFAAOCAgEAL2/h22SVCN+UOZAPAb/vY80j/j4vpRxXaiF7FcXoFg2zagAcBquI7HGBNA3elFBprf5tJIuIDtQJgcT//e0MEbffC9JVgC+AATYssJOCNq1lOQMwvlFtPCZEUQyZSWnYdrJNuz+zLBCE4WtzxoYTm3TpYrTpqpivKXS+VNLXVkXqyCJ7m8qeIAOUxSPrg8jKQXYy6o/ZNDm8rkTiodm7RVDZOhD3iWJDjj6Ccr5gu2eLVHF8uxLQYKwdycat7jtR1ytwsbYtfPhlOkPyO93BMR8lc+ZihKxWwXc3+OIEfnLN8XI+PX8SlMLtbmV5c9Kre8jXc5YOz5Rn3IAi5gUboIxxv1EZ0yaRbMFkKknLhdoP+8oocWYlu4YmVi8k8lH0y1WKx07q4K/5DFzvCzn7CvjIfycsV76ErgdfdrkOgdNndDfrsJg7I0rUU0sIrjqa1BW9TtrvpsPHrC0+4SP4DJ3PYS66lFS8V8Fhpdv7hVDoG90JT8JZ8YukRMujLBB3mN8lBxMEVDVwg0WadAwSUSokDrayNNNG+rfunpt483az8dK6cebI40oLQGDd2nWwYmN+r5XPSkqt9BsDXln3cLIjYsU/J3vbWyXFOhMBq6Tr/BFN/jWdSysxgKMfjFFV+yUBAJy7wiEDdYQeoCkNqPoMV0O6og9JPzdvHPAu1ew=</wsse:BinarySecurityToken><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Id="Signature-125477">
+<ds:SignedInfo>
+<ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+<ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
+<ds:Reference URI="#id-125478">
+<ds:Transforms>
+<ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+</ds:Transforms>
+<ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
+<ds:DigestValue>5gW0UrjXMGzSBGCaCI1sz59L7Mk=</ds:DigestValue>
+</ds:Reference>
+</ds:SignedInfo>
+<ds:SignatureValue>
+fWnvA1bbjmnH4ygDHtNcr9JW+/QY14dZSMojPI5/dS2nUIfakiZOKianDo/JpTSEMg4CFTD3coG1
+XMc1Isgz+zTV7OBfrnpADXcEJ/qFhlpaZFSnTvoSrmT5V2pceOvdfc7Z6DE735dNyaol06J0Qdbl
+CoD+fUHnTkTOd4oG5Qw=
+</ds:SignatureValue>
+<ds:KeyInfo Id="KeyId-41DE381BBAF96569E61663828515953188216">
+<wsse:SecurityTokenReference xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" wsu:Id="STRId-41DE381BBAF96569E61663828515953188217"><wsse:Reference URI="#CertId-41DE381BBAF96569E61663828515953188215" ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509v3"/></wsse:SecurityTokenReference>
+</ds:KeyInfo>
+</ds:Signature></wsse:Security></soapenv:Header>
+ <soapenv:Body xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" wsu:Id="id-125478">
+  <SP2D>
+   <ApplicationArea>
+    <ApplicationAreaSenderIdentifier>SPAN</ApplicationAreaSenderIdentifier>
+    <ApplicationAreaReceiverIdentifier>BSI</ApplicationAreaReceiverIdentifier>
+    <ApplicationAreaDetailSenderIdentifier/>
+    <ApplicationAreaDetailReceiverIdentifier/>
+    <ApplicationAreaCreationDateTime>2022-09-22 13:35:15</ApplicationAreaCreationDateTime>
+    <ApplicationAreaMessageIdentifier>525451000990_SP2D_O_20220922_133358_964.xml</ApplicationAreaMessageIdentifier>
+    <ApplicationAreaMessageTypeIndicator>SP2D</ApplicationAreaMessageTypeIndicator>
+    <ApplicationAreaMessageVersionText>1.0</ApplicationAreaMessageVersionText>
+   </ApplicationArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000001</DocumentNumber>
+    <BeneficiaryName>IBRAHIM MUSAPAO</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>8043346330</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000002</DocumentNumber>
+    <BeneficiaryName>HARSANDI SAMSUDIN</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>7182362270</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000003</DocumentNumber>
+    <BeneficiaryName>MIRNA SALAM</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>8956206830</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000004</DocumentNumber>
+    <BeneficiaryName>MULYATI DANO</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>8922668940</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000005</DocumentNumber>
+    <BeneficiaryName>KALIANDA BAYAU</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>8922688690</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000006</DocumentNumber>
+    <BeneficiaryName>MUHAMMAD RISKI SIBUA</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>8969364470</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000007</DocumentNumber>
+    <BeneficiaryName>NURMALA SIBUA</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>7549256430</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000008</DocumentNumber>
+    <BeneficiaryName>LISA TAIB</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>8496989740</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000009</DocumentNumber>
+    <BeneficiaryName>SUTNI FAIDAH PINA</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>8921531760</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000010</DocumentNumber>
+    <BeneficiaryName>MUHLIS LASTORI</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>5501894970</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000011</DocumentNumber>
+    <BeneficiaryName>SITI MASITA SIBUA</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>8921373470</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000012</DocumentNumber>
+    <BeneficiaryName>RAHAYU M RIO</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>8963251440</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000013</DocumentNumber>
+    <BeneficiaryName>RAHIDIN TAIHU</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>7549337440</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000014</DocumentNumber>
+    <BeneficiaryName>ARBI TURKIE</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>7173261890</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000015</DocumentNumber>
+    <BeneficiaryName>SITI JAYANTI TURKIE</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>9095052840</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000016</DocumentNumber>
+    <BeneficiaryName>FAZRUL M YASIN</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>1057971989</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000017</DocumentNumber>
+    <BeneficiaryName>NURSIDA PINA</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>7171969860</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000018</DocumentNumber>
+    <BeneficiaryName>MUHAMMAD ARDI SUMTAKI</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>7513535310</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000019</DocumentNumber>
+    <BeneficiaryName>SRI MURTI KARIM</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>8922650300</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000020</DocumentNumber>
+    <BeneficiaryName>SUSI SUSANTI POSU</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>7184518800</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <DataArea>
+    <DocumentDate>2022-10-01</DocumentDate>
+    <DocumentNumber>221121506000240000021</DocumentNumber>
+    <BeneficiaryName>SYUKUR M KUYLO</BeneficiaryName>
+    <BeneficiaryBankCode>525451000990</BeneficiaryBankCode>
+    <BeneficiaryBank>BANK SYARIAH INDONESIA</BeneficiaryBank>
+    <BeneficiaryAccount>7550531240</BeneficiaryAccount>
+    <Amount>1500000</Amount>
+    <CurrencyTarget>IDR</CurrencyTarget>
+    <Description>Pembayaran Belanja Pegawai Penghasilan PPNPN Gaji Induk Bulan September Tahun 2022 untuk 21 Pegawai Sesuai SK Nomor: B-013/MTs.27.12/KP.00.5/01/2022 Tanggal 24 Januari 2022</Description>
+    <AgentBankCode>525451000990</AgentBankCode>
+    <AgentBankAccountNumber>7185168028</AgentBankAccountNumber>
+    <AgentBankAccountName>RPKBUNP GAJI BSI</AgentBankAccountName>
+    <EmailAddress/>
+    <SwiftCode>-</SwiftCode>
+    <IBANCode>-</IBANCode>
+    <PaymentMethod>0</PaymentMethod>
+    <SP2DCount>21</SP2DCount>
+   </DataArea>
+   <Footer>
+    <TotalCount>21</TotalCount>
+    <TotalAmount>31500000</TotalAmount>
+    <TotalBatchCount>21</TotalBatchCount>
+   </Footer>
+  </SP2D>
+ </soapenv:Body>
+</soapenv:Envelope>
