@@ -1,0 +1,18 @@
+image: bsmdocker.bsm.co.id/java8
+
+stages:
+ - build
+
+compiletojar:
+ stage: build
+ script: 
+  - mvn package -Dmaven.test.skip
+ artifacts:
+  paths:
+   - "target/*.jar"
+ only:
+  - master
+ tags:
+  - docker
+ when: manual
+ allow_failure: false
