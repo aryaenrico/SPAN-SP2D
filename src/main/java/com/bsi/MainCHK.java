@@ -13,13 +13,14 @@ import java.util.logging.SimpleFormatter;
 
 public class MainCHK {
     public static final Logger logger = Logger.getLogger("SP2D-CHECK-NEGATIVE-AMOUNT");
-    private static final boolean isDebug = true;
+    private static final boolean isDebug = false;
 
     public static void main(String[] args) {
-        initLog();
-        String propPath = "", propName = "";
+//        initLog();
+        String propPath = "";//argumen 0
+        String propName = "";//argumen 1
         MariaDb mariaDb = null;
-        boolean chkDS = Arrays.asList(args).contains("-chkDS");
+
         if (isDebug) {
             //debug only
             tulisLog("Debugging...");
@@ -27,37 +28,57 @@ public class MainCHK {
             chkDS("/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/bo2span.properties",
                     "/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/525451000990_SP2D_O_20220921_130509_073.xml");
             System.exit(0);
-        } else if (args.length > 0) {
+        } else if (args.length < 3) {
+            tulisLog("Param tidak lengkap!");
+            tulisLog("[path] [filename] [command]");
+            tulisLog("Command: [checkNegativeAmount/excludeOutOfBalance/includeOutOfBalance]");
+            System.exit(0);
+        } else {
             tulisLog("param1: " + args[0]);
             propPath = args[0];
-            if (args.length > 1) {
-                tulisLog("param2: " + args[1]);
-                propName = args[1];
-            } else {
-                tulisLog("Tidak ada param untuk nama file properties!");
-                System.exit(0);
-            }
+            tulisLog("param2: " + args[1]);
+            propName = args[1];
             mariaDb = new MariaDb(propPath, propName);
-        } else {
-            tulisLog("Tidak ada param untuk path file properties!");
-            System.exit(0);
         }
-        if (chkDS) {
-            if (args.length > 3) {
+
+        switch (args[2]) {
+            case "checkNegativeAmount":
+                try {
+                    mariaDb.checkVoidList();
+                    tulisLog("checkVoidList done..");
+                    mariaDb.updStageIn();
+                    tulisLog("updStageIn done..");
+                } catch (Throwable e) {
+                    tulisLog("Throwable :" + e.getMessage());
+                    e.printStackTrace(System.out);
+                }
+                break;
+            case "excludeOutOfBalance":
+                try {
+                    mariaDb.excludeOutOfBalance();
+                    tulisLog("excludeOutOfBalance done");
+                } catch (Throwable e) {
+                    tulisLog("Throwable :" + e.getMessage());
+                    e.printStackTrace(System.out);
+                }
+                break;
+            case "includeOutOfBalance":
+                try {
+                    mariaDb.includeOutOfBalance();
+                    tulisLog("includeOutOfBalance done");
+                } catch (Throwable e) {
+                    tulisLog("Throwable :" + e.getMessage());
+                    e.printStackTrace(System.out);
+                }
+                break;
+            case "chkDS":
                 chkDS(propPath + propName + ".properties", args[4] + "");
-            }
-        } else {
-            try {
-                tulisLog("checkVoidList");
-                mariaDb.checkVoidList();
-                tulisLog("updStageIn");
-                mariaDb.updStageIn();
-            } catch (Throwable e) {
-                tulisLog("Throwable :" + e.getMessage());
-                e.printStackTrace(System.out);
-            }
-            mariaDb.close();
+                break;
+            default:
+                // code block
         }
+
+        mariaDb.close();
         System.exit(0);
     }
 
@@ -80,8 +101,8 @@ public class MainCHK {
     }
 
     public static void tulisLog(String txt) {
-        MainCHK.logger.log(Level.INFO, txt);
-        System.out.println(txt);
+//        MainCHK.logger.log(Level.INFO, txt);
+        System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + "] " + txt);
     }
 
     public static void tulisLog(Object txt) {
