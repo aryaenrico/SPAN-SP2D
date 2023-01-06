@@ -1,10 +1,6 @@
 package com.bsi;
 
-import com.bsi.DigitalSignature;
-
-import java.sql.SQLException;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
@@ -38,6 +34,7 @@ public class MainCHK {
             propPath = args[0];
             tulisLog("param2: " + args[1]);
             propName = args[1];
+            tulisLog("param3: " + args[2]);
             mariaDb = new MariaDb(propPath, propName);
         }
 
@@ -53,19 +50,37 @@ public class MainCHK {
                     e.printStackTrace(System.out);
                 }
                 break;
-            case "excludeOutOfBalance":
+            case "excludeOutOfBalanceBO1":
                 try {
-                    mariaDb.excludeOutOfBalance();
-                    tulisLog("excludeOutOfBalance done");
+                    mariaDb.excludeOutOfBalanceBO1();
+                    tulisLog("excludeOutOfBalanceBO1 done");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
                     e.printStackTrace(System.out);
                 }
                 break;
-            case "includeOutOfBalance":
+            case "includeOutOfBalanceBO1":
                 try {
-                    mariaDb.includeOutOfBalance();
-                    tulisLog("includeOutOfBalance done");
+                    mariaDb.includeOutOfBalanceBO1();
+                    tulisLog("includeOutOfBalanceBO1 done");
+                } catch (Throwable e) {
+                    tulisLog("Throwable :" + e.getMessage());
+                    e.printStackTrace(System.out);
+                }
+                break;
+            case "excludeOutOfBalanceBO2":
+                try {
+                    mariaDb.excludeOutOfBalanceBO2();
+                    tulisLog("excludeOutOfBalanceBO2 done");
+                } catch (Throwable e) {
+                    tulisLog("Throwable :" + e.getMessage());
+                    e.printStackTrace(System.out);
+                }
+                break;
+            case "includeOutOfBalanceBO2":
+                try {
+                    mariaDb.includeOutOfBalanceBO2();
+                    tulisLog("includeOutOfBalanceBO2 done");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
                     e.printStackTrace(System.out);

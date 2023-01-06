@@ -20,8 +20,10 @@ public class MariaDb {
     public long rowCount;
 
     public final String statusReadyProses = "UPL-000";
+    public final String statusRetryProses = "RDY-008";
     public final String statusWaitingUPL = "UPK-000";
-    ;
+    public String ACCT_RPKBUN_GAJI;
+    public String ACCT_RPKBUN_NON_GAJI;
     public final String statusWaitingDropping = "UPW-000";
     public final String statusVoid = "VOD-201";
 
@@ -33,7 +35,7 @@ public class MariaDb {
             ClassLoader loader = new URLClassLoader(urls);
             rb = ResourceBundle.getBundle(propName, Locale.getDefault(), loader);
 
-            System.setProperty("line.separator", "\r\n");
+            System.setProperty("line.separator", "\r");
             Class.forName("org.mariadb.jdbc.Driver");
             String serverSpan = rb.getString("db_bo2span_host_name").trim();
             String dbSpan = rb.getString("db_bo2span_database_name").trim();
@@ -174,10 +176,10 @@ public class MariaDb {
     public static void main(String[] args) throws SQLException {
         MariaDb mariaDb = new MariaDb("/Users/choirulrahmadan/BSI/SpanPlay/conf/", "bo2span");
 //        mariaDb.excludeOutOfBalance();
-        mariaDb.includeOutOfBalance();
+//        mariaDb.includeOutOfBalance();
     }
 
-    public void excludeOutOfBalance() throws SQLException {
+    public void excludeOutOfBalanceBO1() throws SQLException {
         PreparedStatement qSelectSaldo = null, qSelectSP2D = null, qUpdate = null;
         try {
             qSelectSaldo = conn.prepareStatement(
@@ -196,8 +198,9 @@ public class MariaDb {
             String account_number = "";
 
             if (rs.next()) {
+                ACCT_RPKBUN_NON_GAJI = rs.getString("account_number");
                 amount_balance = rs.getBigDecimal("amount_balance");
-                account_number = rs.getString("account_number");
+                account_number = ACCT_RPKBUN_NON_GAJI;
                 MainCHK.tulisLog("saldo [" + account_number + "]:[" + amount_balance + "]");
 
 
@@ -206,11 +209,11 @@ public class MariaDb {
                                 "from span_sp2d_stage_in " +
                                 "WHERE documentdate = (select config_value from span_application_config where config_name = 'APP_DATE') " +
                                 "  and agentbankaccountnumber = ? " +
-                                "  AND status = ? " +
+                                "  AND status in ('" + statusReadyProses + "','" + statusRetryProses + "') " +
                                 "GROUP BY applicationareamessageidentifier"
                 );
                 qSelectSP2D.setString(1, account_number);
-                qSelectSP2D.setString(2, statusReadyProses);
+//                qSelectSP2D.setString(2, statusReadyProses);
                 qSelectSP2D.executeQuery();
                 rs2 = qSelectSP2D.executeQuery();
                 List<String> list = new ArrayList<>(Collections.emptyList());
@@ -221,6 +224,7 @@ public class MariaDb {
                         list.add(rs2.getString("applicationareamessageidentifier"));
                     }
                 }
+
                 String joinNamaFileSp2d = "'" + String.join("','", list) + "'";
 
                 if (list.size() > 0) {
@@ -254,16 +258,97 @@ public class MariaDb {
         }
     }
 
-    public void includeOutOfBalance() throws SQLException {
+    public void excludeOutOfBalanceBO2() throws SQLException {
+        PreparedStatement qSelectSaldo = null, qSelectSP2D = null, qUpdate = null;
+        try {
+            qSelectSaldo = conn.prepareStatement(
+                    "select * " +
+                            "from span_account " +
+                            "         join span_application_config conf on span_account.account_number = conf.config_value " +
+                            "where conf.config_name = ? ;"
+            );
+            qSelectSaldo.setString(1, "ACCT_RPKBUN_GAJI");
+            MainCHK.tulisLog(qSelectSaldo.toString());
+            rs = qSelectSaldo.executeQuery();
+
+            BigDecimal amount_balance;
+            BigDecimal tempAmount = new BigDecimal(0);
+            BigDecimal perLoopAmount = new BigDecimal(0);
+            String account_number = "";
+
+            if (rs.next()) {
+                ACCT_RPKBUN_GAJI = rs.getString("account_number");
+                amount_balance = rs.getBigDecimal("amount_balance");
+                account_number = ACCT_RPKBUN_GAJI;
+                MainCHK.tulisLog("saldo [" + account_number + "]:[" + amount_balance + "]");
+
+
+                qSelectSP2D = conn.prepareStatement(
+                        "select applicationareamessageidentifier, count(1) count, sum(amount) sumamount " +
+                                "from span_sp2d_stage_in " +
+                                "WHERE documentdate = (select config_value from span_application_config where config_name = 'APP_DATE') " +
+                                "  and agentbankaccountnumber = ? " +
+                                "  AND status in ('" + statusReadyProses + "','" + statusRetryProses + "') " +
+                                "GROUP BY applicationareamessageidentifier"
+                );
+                qSelectSP2D.setString(1, account_number);
+//                qSelectSP2D.setString(2, statusReadyProses);
+                qSelectSP2D.executeQuery();
+                rs2 = qSelectSP2D.executeQuery();
+                List<String> list = new ArrayList<>(Collections.emptyList());
+                while (rs2.next()) {
+                    perLoopAmount = tempAmount;
+                    tempAmount = perLoopAmount.add(rs2.getBigDecimal("sumamount"));
+                    if (amount_balance.compareTo(tempAmount) < 0) {
+                        list.add(rs2.getString("applicationareamessageidentifier"));
+                    }
+                }
+
+                String joinNamaFileSp2d = "'" + String.join("','", list) + "'";
+
+                if (list.size() > 0) {
+                    qUpdate = conn.prepareStatement(
+                            "update span_sp2d_stage_in " +
+                                    "set status = ? " +
+                                    "WHERE documentdate = (select config_value from span_application_config where config_name = 'APP_DATE') " +
+                                    "  and applicationareamessageidentifier IN (" + joinNamaFileSp2d + ") " +
+                                    "  and status = ?;"
+                    );
+                    qUpdate.setString(1, statusWaitingDropping);
+                    qUpdate.setString(2, statusReadyProses);
+                    qUpdate.executeUpdate();
+                    MainCHK.tulisLog(qUpdate.toString());
+                } else {
+                    MainCHK.tulisLog("Saldo Cukup untuk semua SP2D saat ini.");
+                }
+            } else {
+                MainCHK.tulisLog("ACCT_RPKBUN_GAJI tidak ditemukan");
+            }
+        } catch (SQLException ex) {
+            ex.printStackTrace(System.out);
+            MainCHK.logger.log(Level.SEVERE, ex.getMessage(), ex);
+        } finally {
+            if (qSelectSaldo != null) {
+                qSelectSaldo.close();
+            }
+            if (qUpdate != null) {
+                qUpdate.close();
+            }
+        }
+    }
+
+    public void includeOutOfBalanceBO1() throws SQLException {
         PreparedStatement qUpdate = null;
         try {
             qUpdate = conn.prepareStatement(
                     "update span_sp2d_stage_in set status = ? WHERE " +
                             "documentdate = (select config_value from span_application_config where config_name = 'APP_DATE') " +
+                            "AND agentbankaccountnumber = ? " +
                             "AND status = ?"
             );
             qUpdate.setString(1, statusReadyProses);
-            qUpdate.setString(2, statusWaitingDropping);
+            qUpdate.setString(2, ACCT_RPKBUN_NON_GAJI);
+            qUpdate.setString(3, statusWaitingDropping);
             qUpdate.executeUpdate();
             MainCHK.tulisLog(qUpdate.toString());
         } catch (SQLException ex) {
@@ -275,5 +360,30 @@ public class MariaDb {
             }
         }
     }
+
+    public void includeOutOfBalanceBO2() throws SQLException {
+        PreparedStatement qUpdate = null;
+        try {
+            qUpdate = conn.prepareStatement(
+                    "update span_sp2d_stage_in set status = ? WHERE " +
+                            "documentdate = (select config_value from span_application_config where config_name = 'APP_DATE') " +
+                            "AND agentbankaccountnumber = ? " +
+                            "AND status = ?"
+            );
+            qUpdate.setString(1, statusReadyProses);
+            qUpdate.setString(2, ACCT_RPKBUN_GAJI);
+            qUpdate.setString(3, statusWaitingDropping);
+            qUpdate.executeUpdate();
+            MainCHK.tulisLog(qUpdate.toString());
+        } catch (SQLException ex) {
+            ex.printStackTrace(System.out);
+            MainCHK.logger.log(Level.SEVERE, ex.getMessage(), ex);
+        } finally {
+            if (qUpdate != null) {
+                qUpdate.close();
+            }
+        }
+    }
+
 
 }
