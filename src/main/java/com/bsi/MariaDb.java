@@ -233,10 +233,12 @@ public class MariaDb {
                                     "set status = ? " +
                                     "WHERE documentdate = (select config_value from span_application_config where config_name = 'APP_DATE') " +
                                     "  and applicationareamessageidentifier IN (" + joinNamaFileSp2d + ") " +
+                                    "  and agentbankaccountnumber = ? " +
                                     "  and status = ?;"
                     );
                     qUpdate.setString(1, statusWaitingDropping);
-                    qUpdate.setString(2, statusReadyProses);
+                    qUpdate.setString(2, account_number);
+                    qUpdate.setString(3, statusReadyProses);
                     qUpdate.executeUpdate();
                     MainCHK.tulisLog(qUpdate.toString());
                 } else {
@@ -312,10 +314,12 @@ public class MariaDb {
                                     "set status = ? " +
                                     "WHERE documentdate = (select config_value from span_application_config where config_name = 'APP_DATE') " +
                                     "  and applicationareamessageidentifier IN (" + joinNamaFileSp2d + ") " +
+                                    "  and agentbankaccountnumber = ? " +
                                     "  and status = ?;"
                     );
                     qUpdate.setString(1, statusWaitingDropping);
-                    qUpdate.setString(2, statusReadyProses);
+                    qUpdate.setString(2, account_number);
+                    qUpdate.setString(3, statusReadyProses);
                     qUpdate.executeUpdate();
                     MainCHK.tulisLog(qUpdate.toString());
                 } else {
