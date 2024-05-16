@@ -19,11 +19,28 @@
             <artifactId>mariadb-java-client</artifactId>
             <version>3.0.7</version>
         </dependency>
+
+        <dependency>
+            <groupId>com.oracle.jdbc</groupId>
+            <artifactId>ojdbc8</artifactId>
+            <version>19.22.0.0.0</version>
+        </dependency>
 <!--        -Dfile=digitalSignature.jar -DgroupId=com.bsm.ds -DartifactId=digital-signature -Dversion=1.0.0 -Dpackaging=jar -->
         <dependency>
             <groupId>com.bsm.ds</groupId>
             <artifactId>digital-signature</artifactId>
             <version>1.0.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.7.5</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            <version>1.7.5</version>
         </dependency>
     </dependencies>
     <build>

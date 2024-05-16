@@ -15,12 +15,12 @@ public class MainCHK {
 //        initLog();
         String propPath = "";//argumen 0
         String propName = "";//argumen 1
-        MariaDb mariaDb = null;
+        OracleDb oracleDb = null;
 
         if (isDebug) {
             //debug only
             tulisLog("Debugging...");
-//            mariaDb = new MariaDb("/Users/choirulrahmadan/BSI/SpanPlay/conf/", "bo2span");
+//            oracleDb = new OracleDb("/Users/choirulrahmadan/BSI/SpanPlay/conf/", "bo2span");
             chkDS("/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/bo2span.properties",
                     "/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/525451000990_SP2D_O_20220921_130509_073.xml");
             System.exit(0);
@@ -35,15 +35,15 @@ public class MainCHK {
             tulisLog("param2: " + args[1]);
             propName = args[1];
             tulisLog("param3: " + args[2]);
-            mariaDb = new MariaDb(propPath, propName);
+            oracleDb = new OracleDb(propPath, propName);
         }
 
         switch (args[2]) {
             case "checkNegativeAmount":
                 try {
-                    mariaDb.checkVoidList();
+                    oracleDb.checkVoidList();
                     tulisLog("checkVoidList done..");
-                    mariaDb.updStageIn();
+                    oracleDb.updStageIn();
                     tulisLog("updStageIn done..");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
@@ -52,7 +52,7 @@ public class MainCHK {
                 break;
             case "excludeOutOfBalanceBO1":
                 try {
-                    mariaDb.excludeOutOfBalanceBO1();
+                    oracleDb.excludeOutOfBalanceBO1();
                     tulisLog("excludeOutOfBalanceBO1 done");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
@@ -61,7 +61,7 @@ public class MainCHK {
                 break;
             case "includeOutOfBalanceBO1":
                 try {
-                    mariaDb.includeOutOfBalanceBO1();
+                    oracleDb.includeOutOfBalanceBO1();
                     tulisLog("includeOutOfBalanceBO1 done");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
@@ -70,7 +70,7 @@ public class MainCHK {
                 break;
             case "excludeOutOfBalanceBO2":
                 try {
-                    mariaDb.excludeOutOfBalanceBO2();
+                    oracleDb.excludeOutOfBalanceBO2();
                     tulisLog("excludeOutOfBalanceBO2 done");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
@@ -79,7 +79,7 @@ public class MainCHK {
                 break;
             case "includeOutOfBalanceBO2":
                 try {
-                    mariaDb.includeOutOfBalanceBO2();
+                    oracleDb.includeOutOfBalanceBO2();
                     tulisLog("includeOutOfBalanceBO2 done");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
@@ -93,7 +93,7 @@ public class MainCHK {
                 // code block
         }
 
-        mariaDb.close();
+        oracleDb.close();
         System.exit(0);
     }
 
