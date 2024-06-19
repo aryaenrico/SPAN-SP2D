@@ -1,4 +1,4 @@
-package com.bsi;
+package com.bsi.service;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -28,12 +28,12 @@ import javax.xml.soap.SOAPException;
 import javax.xml.soap.SOAPMessage;
 import javax.xml.transform.Source;
 import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMResult;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import com.bsi.MainCHK;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.ws.security.WSSConfig;
 import org.apache.ws.security.WSSecurityEngine;

@@ -1,4 +1,6 @@
-package com.bsi;
+package com.bsi.service;
+
+import com.bsi.MainCHK;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -10,7 +12,7 @@ import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class MariaDb {
+public class OracleDb {
     Connection conn = null;
     Statement st;
     public PreparedStatement ps;
@@ -27,7 +29,7 @@ public class MariaDb {
     public final String statusWaitingDropping = "UPW-000";
     public final String statusVoid = "VOD-201";
 
-    public MariaDb(String pathProp, String propName) {
+    public OracleDb(String pathProp, String propName) {
         try {
 //            File file = new File(System.getProperty("user.dir"));
             File file = new File(pathProp);
@@ -36,13 +38,13 @@ public class MariaDb {
             rb = ResourceBundle.getBundle(propName, Locale.getDefault(), loader);
 
             System.setProperty("line.separator", "\r");
-            Class.forName("org.mariadb.jdbc.Driver");
+            Class.forName("oracle.jdbc.OracleDriver");
             String serverSpan = rb.getString("db_bo2span_host_name").trim();
             String dbSpan = rb.getString("db_bo2span_database_name").trim();
             String usrSpan = rb.getString("db_bo2span_user_name").trim();
             String pwdSpan = rb.getString("db_bo2span_password").trim();
             this.rowCount = 0;
-            String url = "jdbc:mariadb://" + serverSpan + ":3306/" + dbSpan;
+            String url = serverSpan;
             conn = DriverManager.getConnection(url, usrSpan, pwdSpan);
             st = conn.createStatement();
             conn.setAutoCommit(true);
@@ -54,7 +56,7 @@ public class MariaDb {
             MainCHK.tulisLog("Error 2. Cek konfigurasi koneksi database");
             ex.printStackTrace(System.out);
         } catch (MalformedURLException ex) {
-            Logger.getLogger(MariaDb.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(OracleDb.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -91,7 +93,7 @@ public class MariaDb {
         try {
             qSelect = conn.prepareStatement(
                     "SELECT sp2d_number FROM span_sp2d_stage_in " +
-                            "WHERE status = ? and amount < 0 GROUP BY sp2d_number;"
+                            "WHERE \"STATUS\" = ? and amount < 0 GROUP BY sp2d_number;"
             );
             qSelect.setString(1, statusWaitingUPL);
             MainCHK.tulisLog(qSelect.toString());
@@ -107,7 +109,7 @@ public class MariaDb {
                 MainCHK.tulisLog(qSelect2.toString());
                 if (!rs2.next()) {
                     qInsert = conn.prepareStatement(
-                            "INSERT INTO span_void_list (sp2d_number, status, void_flag) VALUES (?, ?, ?)"
+                            "INSERT INTO span_void_list (sp2d_number, \"STATUS\", void_flag) VALUES (?, ?, ?)"
                     );
                     qInsert.setString(1, rs.getString("sp2d_number"));
                     qInsert.setString(2, statusVoid);
@@ -140,7 +142,7 @@ public class MariaDb {
         try {
             qSelect = conn.prepareStatement(
                     "select a.sp2d_number sp2d_number, a.sp2dcount sp2dcount, count(id) as cid " +
-                            "from span_sp2d_stage_in a where status = ? " +
+                            "from span_sp2d_stage_in a where \"STATUS\" = ? " +
                             "group by a.sp2d_number, a.sp2dcount;"
             );
             qSelect.setString(1, statusWaitingUPL);
@@ -151,7 +153,7 @@ public class MariaDb {
                 String allSp2d = rs.getString("sp2dcount");
                 if (existingSp2d.equals(allSp2d)) {
                     qUpdate = conn.prepareStatement(
-                            "update span_sp2d_stage_in set status = ? WHERE sp2d_number = ? AND status = ?"
+                            "update span_sp2d_stage_in set \"STATUS\" = ? WHERE sp2d_number = ? AND \"STATUS\" = ?"
                     );
                     qUpdate.setString(1, statusReadyProses);
                     qUpdate.setString(2, rs.getString("sp2d_number"));
@@ -174,9 +176,9 @@ public class MariaDb {
     }
 
     public static void main(String[] args) throws SQLException {
-        MariaDb mariaDb = new MariaDb("/Users/choirulrahmadan/BSI/SpanPlay/conf/", "bo2span");
-//        mariaDb.excludeOutOfBalance();
-//        mariaDb.includeOutOfBalance();
+        OracleDb oracleDb = new OracleDb("/Users/choirulrahmadan/BSI/SpanPlay/conf/", "bo2span");
+//        oracleDb.excludeOutOfBalance();
+//        oracleDb.includeOutOfBalance();
     }
 
     public void excludeOutOfBalanceBO1() throws SQLException {
@@ -209,7 +211,7 @@ public class MariaDb {
                                 "from span_sp2d_stage_in " +
                                 "WHERE documentdate = (select config_value from span_application_config where config_name = 'APP_DATE') " +
                                 "  and agentbankaccountnumber = ? " +
-                                "  AND status in ('" + statusReadyProses + "','" + statusRetryProses + "') " +
+                                "  AND \"STATUS\" in ('" + statusReadyProses + "','" + statusRetryProses + "') " +
                                 "GROUP BY applicationareamessageidentifier"
                 );
                 qSelectSP2D.setString(1, account_number);
@@ -230,11 +232,11 @@ public class MariaDb {
                 if (list.size() > 0) {
                     qUpdate = conn.prepareStatement(
                             "update span_sp2d_stage_in " +
-                                    "set status = ? " +
+                                    "set \"STATUS\" = ? " +
                                     "WHERE documentdate = (select config_value from span_application_config where config_name = 'APP_DATE') " +
                                     "  and applicationareamessageidentifier IN (" + joinNamaFileSp2d + ") " +
                                     "  and agentbankaccountnumber = ? " +
-                                    "  and status = ?;"
+                                    "  and \"STATUS\" = ?;"
                     );
                     qUpdate.setString(1, statusWaitingDropping);
                     qUpdate.setString(2, account_number);
@@ -290,7 +292,7 @@ public class MariaDb {
                                 "from span_sp2d_stage_in " +
                                 "WHERE documentdate = (select config_value from span_application_config where config_name = 'APP_DATE') " +
                                 "  and agentbankaccountnumber = ? " +
-                                "  AND status in ('" + statusReadyProses + "','" + statusRetryProses + "') " +
+                                "  AND \"STATUS\" in ('" + statusReadyProses + "','" + statusRetryProses + "') " +
                                 "GROUP BY applicationareamessageidentifier"
                 );
                 qSelectSP2D.setString(1, account_number);
@@ -311,11 +313,11 @@ public class MariaDb {
                 if (list.size() > 0) {
                     qUpdate = conn.prepareStatement(
                             "update span_sp2d_stage_in " +
-                                    "set status = ? " +
+                                    "set \"STATUS\" = ? " +
                                     "WHERE documentdate = (select config_value from span_application_config where config_name = 'APP_DATE') " +
                                     "  and applicationareamessageidentifier IN (" + joinNamaFileSp2d + ") " +
                                     "  and agentbankaccountnumber = ? " +
-                                    "  and status = ?;"
+                                    "  and \"STATUS\" = ?;"
                     );
                     qUpdate.setString(1, statusWaitingDropping);
                     qUpdate.setString(2, account_number);
@@ -345,10 +347,10 @@ public class MariaDb {
         PreparedStatement qUpdate = null;
         try {
             qUpdate = conn.prepareStatement(
-                    "update span_sp2d_stage_in set status = ? WHERE " +
+                    "update span_sp2d_stage_in set \"STATUS\" = ? WHERE " +
                             "documentdate = (select config_value from span_application_config where config_name = 'APP_DATE') " +
                             "AND agentbankaccountnumber = ? " +
-                            "AND status = ?"
+                            "AND \"STATUS\" = ?"
             );
             qUpdate.setString(1, statusReadyProses);
             qUpdate.setString(2, ACCT_RPKBUN_NON_GAJI);
@@ -369,10 +371,10 @@ public class MariaDb {
         PreparedStatement qUpdate = null;
         try {
             qUpdate = conn.prepareStatement(
-                    "update span_sp2d_stage_in set status = ? WHERE " +
+                    "update span_sp2d_stage_in set \"STATUS\" = ? WHERE " +
                             "documentdate = (select config_value from span_application_config where config_name = 'APP_DATE') " +
                             "AND agentbankaccountnumber = ? " +
-                            "AND status = ?"
+                            "AND \"STATUS\" = ?"
             );
             qUpdate.setString(1, statusReadyProses);
             qUpdate.setString(2, ACCT_RPKBUN_GAJI);
