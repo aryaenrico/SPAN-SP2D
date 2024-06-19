@@ -33,7 +33,7 @@ public class MainCHK {
         } else if (args.length < 3) {
             tulisLog("Param tidak lengkap!");
             tulisLog("[path] [filename] [command] [tanggal yyyymmdd]");
-            tulisLog("Command: [checkNegativeAmount/excludeOutOfBalance/includeOutOfBalance/checkPaymentMethod4]");
+            tulisLog("Command: [checkNegativeAmount/excludeOutOfBalance/includeOutOfBalance/checkPaymentMethod4/postingDetailAffiliate]");
             System.exit(0);
         } else {
             tulisLog("param1: " + args[0]);

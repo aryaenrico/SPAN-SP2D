@@ -1,6 +1,7 @@
 package com.bsi.service;
 
 import com.bsi.MainCHK;
+import com.bsi.entity.PostingRequest;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import jakarta.ws.rs.core.Response;
@@ -12,6 +13,8 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.sql.*;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -39,8 +42,6 @@ public class MariaDb {
 
     public MariaDb(String pathProp, String propName) {
         try {
-//            File file = new File(System.getProperty("user.dir"));
-            restClient = new RestClient();
             File file = new File(pathProp);
             URL[] urls = {file.toURI().toURL()};
             ClassLoader loader = new URLClassLoader(urls);
@@ -58,6 +59,9 @@ public class MariaDb {
             st = conn.createStatement();
             conn.setAutoCommit(true);
             MainCHK.tulisLog("DB Connected:" + url);
+
+            String baseurl_api_magic = rb.getString("baseurl_api_magic").trim();
+            restClient = new RestClient(baseurl_api_magic);
         } catch (ClassNotFoundException e) {
             MainCHK.tulisLog("Error 1. Cek konfigurasi koneksi database");
             e.printStackTrace(System.out);
@@ -254,22 +258,34 @@ public class MariaDb {
                             "where a.documentdate = (select config_value from span_application_config where config_name = 'APP_DATE') " +
                             "and a.paymentmethod = ? and a.flag_ack is null and reference_number <> '' " +
                             "and agentbankaccountnumber = (select config_value from span_application_config where config_name = 'ACCT_RPKBUN_NON_GAJI');");
-//            Date parsedDate = formatter.parse(tanggal);
-//            java.sql.Date sqlDate = new java.sql.Date(parsedDate.getTime());
             qSelect.setString(1, paymentMethodAfiliasi);
             MainCHK.tulisLog(qSelect.toString());
             rs = qSelect.executeQuery();
             while (rs.next()) {
-                String reference_number = rs.getString("reference_number");
+                String referenceNumber = rs.getString("reference_number");
                 String kodeReferal = rs.getString("beneficiaryaccount");
                 String documentNumber = rs.getString("documentnumber");
-                String sp2d_number = rs.getString("sp2d_number");
+                String amount = rs.getString("amount");
+                String documentdate = rs.getString("documentdate");
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+                LocalDate dateParsed = LocalDate.parse(documentdate, formatter);
+                String agentBankAccountNumber = rs.getString("agentbankaccountnumber");
+                String applicationareamessageidentifier = rs.getString("applicationareamessageidentifier");
                 MainCHK.tulisLog("postingDetail for documentnumber/beneficiaryaccount(kodeReferal):" + documentNumber + "/" + kodeReferal);
-                if (reference_number != null || reference_number != "") {
-                    Response response = restClient.processPosting(kodeReferal);
+                if (referenceNumber != null || referenceNumber != "") {
+                    PostingRequest postingRequest = new PostingRequest();
+                    postingRequest.setReferenceNumber(referenceNumber);
+                    postingRequest.setDocumentNumber(documentNumber);
+                    postingRequest.setDocumentDate(dateParsed);
+                    postingRequest.setBeneficiaryAccount(kodeReferal);
+                    postingRequest.setAmount(amount);
+                    postingRequest.setAgentBankAccountNumber(agentBankAccountNumber);
+                    postingRequest.setApplicationAreaMessageIdentifier(applicationareamessageidentifier);
+                    MainCHK.tulisLog("request: " + postingRequest.toString());
+                    Response response = restClient.processPosting(postingRequest);
                     String responseString = response.readEntity(String.class);
                     JsonObject jsonObject = JsonParser.parseString(responseString).getAsJsonObject();
-                    MainCHK.tulisLog(jsonObject.get("data"));
+                    MainCHK.tulisLog("response: " + jsonObject.get("data"));
                 }
             }
         } catch (SQLException ex) {
@@ -399,7 +415,6 @@ public class MariaDb {
                                 "GROUP BY applicationareamessageidentifier"
                 );
                 qSelectSP2D.setString(1, account_number);
-//                qSelectSP2D.setString(2, statusReadyProses);
                 qSelectSP2D.executeQuery();
                 rs2 = qSelectSP2D.executeQuery();
                 List<String> list = new ArrayList<>(Collections.emptyList());
