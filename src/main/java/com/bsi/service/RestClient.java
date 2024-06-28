@@ -1,12 +1,14 @@
 package com.bsi.service;
 
+import com.bsi.MainCHK;
 import com.bsi.entity.DefaultResponse;
 import com.bsi.entity.PostingRequest;
-import jakarta.ws.rs.client.Client;
-import jakarta.ws.rs.client.ClientBuilder;
-import jakarta.ws.rs.client.Entity;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 
 public class RestClient {
     private final String REST_URI;
@@ -37,6 +39,7 @@ public class RestClient {
     }
 
     public Response processPosting(PostingRequest postingRequest) {
+        MainCHK.tulisLog("request URL: " + REST_URI + "/process/posting");
         return client
                 .target(REST_URI + "/process/posting")
                 .request(MediaType.APPLICATION_JSON)
@@ -44,6 +47,7 @@ public class RestClient {
     }
 
     public Response getMasterValidasi(String kodeReferal) {
+        MainCHK.tulisLog("request URL: " + REST_URI + "/master-validasi-file?kodeReferal=" + kodeReferal);
         return client
                 .target(REST_URI + "/master-validasi-file?kodeReferal=" + kodeReferal)
                 .request(MediaType.APPLICATION_JSON)

@@ -79,4 +79,17 @@ public class PostingRequest {
         this.amount = amount;
         this.applicationAreaMessageIdentifier = applicationAreaMessageIdentifier;
     }
+
+    @Override
+    public String toString() {
+        return "PostingRequest{" +
+                "referenceNumber='" + referenceNumber + '\'' +
+                ", documentNumber='" + documentNumber + '\'' +
+                ", documentDate=" + documentDate +
+                ", beneficiaryAccount='" + beneficiaryAccount + '\'' +
+                ", amount='" + amount + '\'' +
+                ", agentBankAccountNumber='" + agentBankAccountNumber + '\'' +
+                ", applicationAreaMessageIdentifier='" + applicationAreaMessageIdentifier + '\'' +
+                '}';
+    }
 }
