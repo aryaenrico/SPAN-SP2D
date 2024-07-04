@@ -13,8 +13,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.sql.*;
 import java.text.SimpleDateFormat;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
+import java.util.Date;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -217,12 +216,27 @@ public class MariaDb {
                 MainCHK.tulisLog("response: " + jsonObject.toString());
                 String status = jsonObject.get("status").getAsString();
                 String message = jsonObject.get("message").getAsString();
-                if (status.equals("00")) {
-                    String totalAmount = jsonObject.get("data").getAsJsonObject().get("totalAmount").getAsString();
-                    if (totalAmount.equals(amount)) {
-                        MainCHK.tulisLog("amount match: [" + totalAmount + "] == [" + amount + "]");
+                if (response.getStatus() == 200) {
+                    qUpdate = conn.prepareStatement("update span_sp2d_stage_in set status = ? WHERE documentnumber = ? AND status = ?");
+                    qUpdate.setString(1, statusReadyProses);
+                    qUpdate.setString(2, documentNumber);
+                    qUpdate.setString(3, statusWaitingUPV);
+                    qUpdate.executeUpdate();
+                    MainCHK.tulisLog(qUpdate.toString());
+                    if (status.equals("00")) {
+                        String totalAmount = jsonObject.get("data").getAsJsonObject().get("totalAmount").getAsString();
+                        if (totalAmount.equals(amount)) {
+                            MainCHK.tulisLog("amount match: [" + totalAmount + "] == [" + amount + "]");
+                        } else {
+                            MainCHK.tulisLog("amount not match: [" + totalAmount + "] != [" + amount + "]");
+                            qInsert = conn.prepareStatement("INSERT INTO span_void_list (sp2d_number, status) VALUES (?, ?)");
+                            qInsert.setString(1, sp2d_number);
+                            qInsert.setString(2, statusVoid);
+                            qInsert.executeUpdate();
+                            MainCHK.tulisLog(qInsert.toString());
+                        }
                     } else {
-                        MainCHK.tulisLog("amount not match: [" + totalAmount + "] != [" + amount + "]");
+                        MainCHK.tulisLog("response code : [" + status + "] with message [" + message + "]");
                         qInsert = conn.prepareStatement("INSERT INTO span_void_list (sp2d_number, status) VALUES (?, ?)");
                         qInsert.setString(1, sp2d_number);
                         qInsert.setString(2, statusVoid);
@@ -230,19 +244,8 @@ public class MariaDb {
                         MainCHK.tulisLog(qInsert.toString());
                     }
                 } else {
-                    MainCHK.tulisLog("response code : [" + status + "] with message [" + message + "]");
-                    qInsert = conn.prepareStatement("INSERT INTO span_void_list (sp2d_number, status) VALUES (?, ?)");
-                    qInsert.setString(1, sp2d_number);
-                    qInsert.setString(2, statusVoid);
-                    qInsert.executeUpdate();
-                    MainCHK.tulisLog(qInsert.toString());
+                    MainCHK.tulisLog("response getStatus: " + response.getStatus());
                 }
-                qUpdate = conn.prepareStatement("update span_sp2d_stage_in set status = ? WHERE documentnumber = ? AND status = ?");
-                qUpdate.setString(1, statusReadyProses);
-                qUpdate.setString(2, documentNumber);
-                qUpdate.setString(3, statusWaitingUPV);
-                qUpdate.executeUpdate();
-                MainCHK.tulisLog(qUpdate.toString());
             }
         } catch (SQLException ex) {
             ex.printStackTrace(System.out);
@@ -263,7 +266,7 @@ public class MariaDb {
             qSelect = conn.prepareStatement(
                     "select beneficiaryaccount, agentbankaccountnumber, amount, documentdate, sp2d_number, documentnumber, applicationareamessageidentifier, reference_number, return_code from span_sp2d_posting a " +
                             "where a.documentdate = (select config_value from span_application_config where config_name = 'APP_DATE') " +
-                            "and a.paymentmethod = ? and a.flag_ack is null and reference_number <> '' " +
+                            "and a.paymentmethod = ? and a.flag_ack is  null and reference_number <> '' " +
                             "and agentbankaccountnumber = (select config_value from span_application_config where config_name = 'ACCT_RPKBUN_NON_GAJI');");
             qSelect.setString(1, paymentMethodAfiliasi);
             MainCHK.tulisLog(qSelect.toString());
@@ -273,7 +276,7 @@ public class MariaDb {
                 String kodeReferal = rs.getString("beneficiaryaccount");
                 String documentNumber = rs.getString("documentnumber");
                 String amount = rs.getString("amount");
-                LocalDate documentdate = rs.getDate("documentdate").toLocalDate();
+                Date documentdate = rs.getDate("documentdate");
                 String agentBankAccountNumber = rs.getString("agentbankaccountnumber");
                 String applicationareamessageidentifier = rs.getString("applicationareamessageidentifier");
                 MainCHK.tulisLog("postingDetail for documentnumber/beneficiaryaccount(kodeReferal):" + documentNumber + "/" + kodeReferal);
@@ -281,16 +284,15 @@ public class MariaDb {
                     PostingRequest postingRequest = new PostingRequest();
                     postingRequest.setReferenceNumber(referenceNumber);
                     postingRequest.setDocumentNumber(documentNumber);
-                    postingRequest.setDocumentDate(documentdate);
+                    SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+                    String dateString = formatter.format(documentdate);
+                    postingRequest.setDocumentDate(dateString);
                     postingRequest.setBeneficiaryAccount(kodeReferal);
                     postingRequest.setAmount(amount);
                     postingRequest.setAgentBankAccountNumber(agentBankAccountNumber);
                     postingRequest.setApplicationAreaMessageIdentifier(applicationareamessageidentifier);
                     MainCHK.tulisLog("request: " + postingRequest.toString());
-                    Response response = restClient.processPosting(postingRequest);
-                    String responseString = response.readEntity(String.class);
-                    JsonObject jsonObject = JsonParser.parseString(responseString).getAsJsonObject();
-                    MainCHK.tulisLog("response: " + jsonObject.toString());
+                    restClient.processPosting(postingRequest);
                 }
             }
         } catch (SQLException ex) {

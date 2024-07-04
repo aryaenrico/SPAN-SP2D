@@ -1,11 +1,11 @@
 package com.bsi.entity;
 
-import java.time.LocalDate;
-
 public class PostingRequest {
     private String referenceNumber;
     private String documentNumber;
-    private LocalDate documentDate;
+    //    @JsonDeserialize(using = LocalDateTimeDeserializer.class)
+//    @JsonSerialize(using = LocalDateTimeSerializer.class)
+    private String documentDate;
     private String beneficiaryAccount;
     private String amount;
     private String agentBankAccountNumber;
@@ -27,11 +27,11 @@ public class PostingRequest {
         this.documentNumber = documentNumber;
     }
 
-    public LocalDate getDocumentDate() {
+    public String getDocumentDate() {
         return documentDate;
     }
 
-    public void setDocumentDate(LocalDate documentDate) {
+    public void setDocumentDate(String documentDate) {
         this.documentDate = documentDate;
     }
 
@@ -70,22 +70,12 @@ public class PostingRequest {
     public PostingRequest() {
     }
 
-    public PostingRequest(String agentBankAccountNumber, String referenceNumber, String documentNumber, LocalDate documentDate, String beneficiaryAccount, String amount, String applicationAreaMessageIdentifier) {
-        this.agentBankAccountNumber = agentBankAccountNumber;
-        this.referenceNumber = referenceNumber;
-        this.documentNumber = documentNumber;
-        this.documentDate = documentDate;
-        this.beneficiaryAccount = beneficiaryAccount;
-        this.amount = amount;
-        this.applicationAreaMessageIdentifier = applicationAreaMessageIdentifier;
-    }
-
     @Override
     public String toString() {
         return "PostingRequest{" +
                 "referenceNumber='" + referenceNumber + '\'' +
                 ", documentNumber='" + documentNumber + '\'' +
-                ", documentDate=" + documentDate +
+                ", documentDate='" + documentDate + '\'' +
                 ", beneficiaryAccount='" + beneficiaryAccount + '\'' +
                 ", amount='" + amount + '\'' +
                 ", agentBankAccountNumber='" + agentBankAccountNumber + '\'' +
