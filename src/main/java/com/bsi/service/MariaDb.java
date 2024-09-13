@@ -37,6 +37,7 @@ public class MariaDb {
     public String ACCT_RPKBUN_NON_GAJI;
     public final String statusWaitingDropping = "UPW-000";
     public final String statusVoid = "VOD-201";
+    public final String prefixStatusVoid = "VOD-";
     SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd");
 
     public MariaDb(String pathProp, String propName) {
@@ -231,15 +232,29 @@ public class MariaDb {
                             MainCHK.tulisLog("amount not match: [" + totalAmount + "] != [" + amount + "]");
                             qInsert = conn.prepareStatement("INSERT INTO span_void_list (sp2d_number, status) VALUES (?, ?)");
                             qInsert.setString(1, sp2d_number);
-                            qInsert.setString(2, statusVoid);
+                            qInsert.setString(2, prefixStatusVoid+"204");
                             qInsert.executeUpdate();
                             MainCHK.tulisLog(qInsert.toString());
                         }
-                    } else {
+                    } else if(status.equals("91")) {//already posted
                         MainCHK.tulisLog("response code : [" + status + "] with message [" + message + "]");
                         qInsert = conn.prepareStatement("INSERT INTO span_void_list (sp2d_number, status) VALUES (?, ?)");
                         qInsert.setString(1, sp2d_number);
-                        qInsert.setString(2, statusVoid);
+                        qInsert.setString(2, prefixStatusVoid+"206");
+                        qInsert.executeUpdate();
+                        MainCHK.tulisLog(qInsert.toString());
+                    }else if(status.equals("92")) {//expired
+                        MainCHK.tulisLog("response code : [" + status + "] with message [" + message + "]");
+                        qInsert = conn.prepareStatement("INSERT INTO span_void_list (sp2d_number, status) VALUES (?, ?)");
+                        qInsert.setString(1, sp2d_number);
+                        qInsert.setString(2, prefixStatusVoid+"205");
+                        qInsert.executeUpdate();
+                        MainCHK.tulisLog(qInsert.toString());
+                    }else if(status.equals("99")) {//not found
+                        MainCHK.tulisLog("response code : [" + status + "] with message [" + message + "]");
+                        qInsert = conn.prepareStatement("INSERT INTO span_void_list (sp2d_number, status) VALUES (?, ?)");
+                        qInsert.setString(1, sp2d_number);
+                        qInsert.setString(2, prefixStatusVoid+"203");
                         qInsert.executeUpdate();
                         MainCHK.tulisLog(qInsert.toString());
                     }
