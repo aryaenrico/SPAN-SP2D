@@ -38,6 +38,10 @@ public class MariaDb {
     public final String statusWaitingDropping = "UPW-000";
     public final String statusVoid = "VOD-201";
     public final String prefixStatusVoid = "VOD-";
+    public final String voidAmount = "204";
+    public final String voidAlreadyPosted = "206";
+    public final String voidExpired = "205";
+    public final String voidNotFound = "203";
     SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd");
 
     public MariaDb(String pathProp, String propName) {
@@ -197,7 +201,7 @@ public class MariaDb {
     }
 
     public void checkPaymentMethod4() throws SQLException {
-        PreparedStatement qSelect = null, qUpdate = null, qInsert = null;
+        PreparedStatement qSelect = null, qUpdate = null, qInsertVoidList = null;
         try {
             qSelect = conn.prepareStatement("select beneficiaryaccount, sp2d_number, amount, documentdate, documentnumber, applicationareamessageidentifier, reference_number, return_code from span_sp2d_stage_in a where status = ? and a.paymentmethod = ? ;");
             qSelect.setString(1, statusWaitingUPV);
@@ -218,45 +222,72 @@ public class MariaDb {
                 String status = jsonObject.get("status").getAsString();
                 String message = jsonObject.get("message").getAsString();
                 if (response.getStatus() == 200) {
-                    qUpdate = conn.prepareStatement("update span_sp2d_stage_in set status = ? WHERE documentnumber = ? AND status = ?");
-                    qUpdate.setString(1, statusReadyProses);
-                    qUpdate.setString(2, documentNumber);
-                    qUpdate.setString(3, statusWaitingUPV);
-                    qUpdate.executeUpdate();
-                    MainCHK.tulisLog(qUpdate.toString());
-                    if (status.equals("00")) {
-                        String totalAmount = jsonObject.get("data").getAsJsonObject().get("totalAmount").getAsString();
-                        if (totalAmount.equals(amount)) {
-                            MainCHK.tulisLog("amount match: [" + totalAmount + "] == [" + amount + "]");
-                        } else {
-                            MainCHK.tulisLog("amount not match: [" + totalAmount + "] != [" + amount + "]");
-                            qInsert = conn.prepareStatement("INSERT INTO span_void_list (sp2d_number, status) VALUES (?, ?)");
-                            qInsert.setString(1, sp2d_number);
-                            qInsert.setString(2, prefixStatusVoid+"204");
-                            qInsert.executeUpdate();
-                            MainCHK.tulisLog(qInsert.toString());
-                        }
-                    } else if(status.equals("91")) {//already posted
-                        MainCHK.tulisLog("response code : [" + status + "] with message [" + message + "]");
-                        qInsert = conn.prepareStatement("INSERT INTO span_void_list (sp2d_number, status) VALUES (?, ?)");
-                        qInsert.setString(1, sp2d_number);
-                        qInsert.setString(2, prefixStatusVoid+"206");
-                        qInsert.executeUpdate();
-                        MainCHK.tulisLog(qInsert.toString());
-                    }else if(status.equals("92")) {//expired
-                        MainCHK.tulisLog("response code : [" + status + "] with message [" + message + "]");
-                        qInsert = conn.prepareStatement("INSERT INTO span_void_list (sp2d_number, status) VALUES (?, ?)");
-                        qInsert.setString(1, sp2d_number);
-                        qInsert.setString(2, prefixStatusVoid+"205");
-                        qInsert.executeUpdate();
-                        MainCHK.tulisLog(qInsert.toString());
-                    }else if(status.equals("99")) {//not found
-                        MainCHK.tulisLog("response code : [" + status + "] with message [" + message + "]");
-                        qInsert = conn.prepareStatement("INSERT INTO span_void_list (sp2d_number, status) VALUES (?, ?)");
-                        qInsert.setString(1, sp2d_number);
-                        qInsert.setString(2, prefixStatusVoid+"203");
-                        qInsert.executeUpdate();
-                        MainCHK.tulisLog(qInsert.toString());
+                    String queryVoid = "INSERT INTO span_void_list (sp2d_number, status) VALUES (?, ?)";
+                    String queryStageIn = "update span_sp2d_stage_in set return_code = ?, status = ? WHERE documentnumber = ? ";
+                    switch (status) {
+                        case "00":
+                            String totalAmount = jsonObject.get("data").getAsJsonObject().get("totalAmount").getAsString();
+                            if (totalAmount.equals(amount)) {
+                                MainCHK.tulisLog("amount match: [" + totalAmount + "] == [" + amount + "]");
+                                qUpdate = conn.prepareStatement("update span_sp2d_stage_in set status = ? WHERE documentnumber = ? AND status = ?");
+                                qUpdate.setString(1, statusReadyProses);
+                                qUpdate.setString(2, documentNumber);
+                                qUpdate.setString(3, statusWaitingUPV);
+                                qUpdate.executeUpdate();
+                                MainCHK.tulisLog(qUpdate.toString());
+                            } else {
+                                qUpdate = conn.prepareStatement(queryStageIn);
+                                qUpdate.setString(1, voidAmount);
+                                qUpdate.setString(2, prefixStatusVoid + voidAmount);
+                                qUpdate.setString(3, documentNumber);
+                                qUpdate.executeUpdate();
+                                MainCHK.tulisLog("amount not match: [" + totalAmount + "] != [" + amount + "]");
+                                qInsertVoidList = conn.prepareStatement(queryVoid);
+                                qInsertVoidList.setString(1, sp2d_number);
+                                qInsertVoidList.setString(2, prefixStatusVoid + voidAmount);
+                                qInsertVoidList.executeUpdate();
+                                MainCHK.tulisLog(qInsertVoidList.toString());
+                            }
+                            break;
+                        case "91": //already posted
+                            qUpdate = conn.prepareStatement(queryStageIn);
+                            qUpdate.setString(1, voidAlreadyPosted);
+                            qUpdate.setString(2, prefixStatusVoid + voidAlreadyPosted);
+                            qUpdate.setString(3, documentNumber);
+                            qUpdate.executeUpdate();
+                            MainCHK.tulisLog("response code : [" + status + "] with message [" + message + "]");
+                            qInsertVoidList = conn.prepareStatement(queryVoid);
+                            qInsertVoidList.setString(1, sp2d_number);
+                            qInsertVoidList.setString(2, prefixStatusVoid + voidAlreadyPosted);
+                            qInsertVoidList.executeUpdate();
+                            MainCHK.tulisLog(qInsertVoidList.toString());
+                            break;
+                        case "92": //expired
+                            qUpdate = conn.prepareStatement(queryStageIn);
+                            qUpdate.setString(1, voidExpired);
+                            qUpdate.setString(2, prefixStatusVoid + voidExpired);
+                            qUpdate.setString(3, documentNumber);
+                            qUpdate.executeUpdate();
+                            MainCHK.tulisLog("response code : [" + status + "] with message [" + message + "]");
+                            qInsertVoidList = conn.prepareStatement(queryVoid);
+                            qInsertVoidList.setString(1, sp2d_number);
+                            qInsertVoidList.setString(2, prefixStatusVoid + voidExpired);
+                            qInsertVoidList.executeUpdate();
+                            MainCHK.tulisLog(qInsertVoidList.toString());
+                            break;
+                        case "99": //not found
+                            qUpdate = conn.prepareStatement(queryStageIn);
+                            qUpdate.setString(1, voidNotFound);
+                            qUpdate.setString(2, prefixStatusVoid + voidNotFound);
+                            qUpdate.setString(3, documentNumber);
+                            qUpdate.executeUpdate();
+                            MainCHK.tulisLog("response code : [" + status + "] with message [" + message + "]");
+                            qInsertVoidList = conn.prepareStatement(queryVoid);
+                            qInsertVoidList.setString(1, sp2d_number);
+                            qInsertVoidList.setString(2, prefixStatusVoid + voidNotFound);
+                            qInsertVoidList.executeUpdate();
+                            MainCHK.tulisLog(qInsertVoidList.toString());
+                            break;
                     }
                 } else {
                     MainCHK.tulisLog("response getStatus: " + response.getStatus());
