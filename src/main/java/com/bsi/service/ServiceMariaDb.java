@@ -38,7 +38,7 @@ public class ServiceMariaDb {
     public final String statusWaitingDropping = "UPW-000";
     public final String statusVoid = "VOD-201";
     public final String prefixStatusVoid = "VOD-";
-    public final String voidRC = "204";
+    public final String voidAmount = "204";
     public final String voidAlreadyPosted = "206";
     public final String voidExpired = "205";
     public final String voidNotFound = "203";
@@ -237,14 +237,14 @@ public class ServiceMariaDb {
                                 MainCHK.tulisLog(qUpdate.toString());
                             } else {
                                 qUpdate = conn.prepareStatement(queryStageIn);
-                                qUpdate.setString(1, voidRC);
+                                qUpdate.setString(1, voidAmount);
                                 qUpdate.setString(2, statusReadyProses);
                                 qUpdate.setString(3, documentNumber);
                                 qUpdate.executeUpdate();
                                 MainCHK.tulisLog("amount not match: [" + totalAmount + "] != [" + amount + "]");
                                 qInsertVoidList = conn.prepareStatement(queryVoid);
                                 qInsertVoidList.setString(1, sp2d_number);
-                                qInsertVoidList.setString(2, prefixStatusVoid + voidRC);
+                                qInsertVoidList.setString(2, prefixStatusVoid + voidAmount);
                                 qInsertVoidList.executeUpdate();
                                 MainCHK.tulisLog(qInsertVoidList.toString());
                             }
