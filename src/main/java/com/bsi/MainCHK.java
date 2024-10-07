@@ -1,7 +1,7 @@
 package com.bsi;
 
 import com.bsi.service.DigitalSignature;
-import com.bsi.service.MariaDb;
+import com.bsi.service.ServiceMariaDb;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -21,7 +21,7 @@ public class MainCHK {
         String propPath = "";//argumen 0
         String propName = "";//argumen 1
         String propTgl = "";//argumen 2
-        MariaDb mariaDb = null;
+        ServiceMariaDb serviceMariaDb = null;
 
         if (isDebug) {
             //debug only
@@ -41,15 +41,15 @@ public class MainCHK {
             tulisLog("param2: " + args[1]);
             propName = args[1];
             tulisLog("param3: " + args[2]);
-            mariaDb = new MariaDb(propPath, propName);
+            serviceMariaDb = new ServiceMariaDb(propPath, propName);
         }
 
         switch (args[2]) {
             case "checkNegativeAmount":
                 try {
-                    mariaDb.checkVoidList();
+                    serviceMariaDb.checkVoidList();
                     tulisLog("checkVoidList done..");
-                    mariaDb.updStageIn();
+                    serviceMariaDb.updStageIn();
                     tulisLog("updStageIn done..");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
@@ -58,7 +58,7 @@ public class MainCHK {
                 break;
             case "excludeOutOfBalanceBO1":
                 try {
-                    mariaDb.excludeOutOfBalanceBO1();
+                    serviceMariaDb.excludeOutOfBalanceBO1();
                     tulisLog("excludeOutOfBalanceBO1 done");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
@@ -67,7 +67,7 @@ public class MainCHK {
                 break;
             case "includeOutOfBalanceBO1":
                 try {
-                    mariaDb.includeOutOfBalanceBO1();
+                    serviceMariaDb.includeOutOfBalanceBO1();
                     tulisLog("includeOutOfBalanceBO1 done");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
@@ -76,7 +76,7 @@ public class MainCHK {
                 break;
             case "excludeOutOfBalanceBO2":
                 try {
-                    mariaDb.excludeOutOfBalanceBO2();
+                    serviceMariaDb.excludeOutOfBalanceBO2();
                     tulisLog("excludeOutOfBalanceBO2 done");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
@@ -85,7 +85,7 @@ public class MainCHK {
                 break;
             case "includeOutOfBalanceBO2":
                 try {
-                    mariaDb.includeOutOfBalanceBO2();
+                    serviceMariaDb.includeOutOfBalanceBO2();
                     tulisLog("includeOutOfBalanceBO2 done");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
@@ -94,7 +94,7 @@ public class MainCHK {
                 break;
             case "checkPaymentMethod4":
                 try {
-                    mariaDb.checkPaymentMethod4();
+                    serviceMariaDb.checkPaymentMethod4();
                     tulisLog("checkPaymentMethod4 done");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
@@ -103,7 +103,7 @@ public class MainCHK {
                 break;
             case "postingDetailAffiliate":
                 try {
-                    mariaDb.postingDetailAffiliate();
+                    serviceMariaDb.postingDetailAffiliate();
                     tulisLog("postingDetailAffiliate done");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
@@ -117,7 +117,7 @@ public class MainCHK {
                 // code block
         }
 
-        mariaDb.close();
+        serviceMariaDb.close();
         System.exit(0);
     }
 

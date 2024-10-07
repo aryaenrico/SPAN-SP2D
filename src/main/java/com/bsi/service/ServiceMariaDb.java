@@ -18,7 +18,7 @@ import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class MariaDb {
+public class ServiceMariaDb {
     Connection conn = null;
     Statement st;
     public PreparedStatement ps;
@@ -38,13 +38,13 @@ public class MariaDb {
     public final String statusWaitingDropping = "UPW-000";
     public final String statusVoid = "VOD-201";
     public final String prefixStatusVoid = "VOD-";
-    public final String voidAmount = "204";
+    public final String voidRC = "204";
     public final String voidAlreadyPosted = "206";
     public final String voidExpired = "205";
     public final String voidNotFound = "203";
     SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd");
 
-    public MariaDb(String pathProp, String propName) {
+    public ServiceMariaDb(String pathProp, String propName) {
         try {
             File file = new File(pathProp);
             URL[] urls = {file.toURI().toURL()};
@@ -73,16 +73,16 @@ public class MariaDb {
             MainCHK.tulisLog("Error 2. Cek konfigurasi koneksi database");
             ex.printStackTrace(System.out);
         } catch (MalformedURLException ex) {
-            Logger.getLogger(MariaDb.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(ServiceMariaDb.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
     public static void main(String[] args) {
-        MariaDb db = new MariaDb("D:/BSI/Span/sp2d_check_negative_amount/tesDs", "bo2span");
+        ServiceMariaDb db = new ServiceMariaDb("D:/BSI/Span/sp2d_check_negative_amount/tesDs", "bo2span");
         try {
             db.postingDetailAffiliate();
         } catch (SQLException ex) {
-            Logger.getLogger(MariaDb.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(ServiceMariaDb.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -237,14 +237,14 @@ public class MariaDb {
                                 MainCHK.tulisLog(qUpdate.toString());
                             } else {
                                 qUpdate = conn.prepareStatement(queryStageIn);
-                                qUpdate.setString(1, voidAmount);
-                                qUpdate.setString(2, prefixStatusVoid + voidAmount);
+                                qUpdate.setString(1, voidRC);
+                                qUpdate.setString(2, statusReadyProses);
                                 qUpdate.setString(3, documentNumber);
                                 qUpdate.executeUpdate();
                                 MainCHK.tulisLog("amount not match: [" + totalAmount + "] != [" + amount + "]");
                                 qInsertVoidList = conn.prepareStatement(queryVoid);
                                 qInsertVoidList.setString(1, sp2d_number);
-                                qInsertVoidList.setString(2, prefixStatusVoid + voidAmount);
+                                qInsertVoidList.setString(2, prefixStatusVoid + voidRC);
                                 qInsertVoidList.executeUpdate();
                                 MainCHK.tulisLog(qInsertVoidList.toString());
                             }
@@ -252,7 +252,7 @@ public class MariaDb {
                         case "91": //already posted
                             qUpdate = conn.prepareStatement(queryStageIn);
                             qUpdate.setString(1, voidAlreadyPosted);
-                            qUpdate.setString(2, prefixStatusVoid + voidAlreadyPosted);
+                            qUpdate.setString(2, statusReadyProses);
                             qUpdate.setString(3, documentNumber);
                             qUpdate.executeUpdate();
                             MainCHK.tulisLog("response code : [" + status + "] with message [" + message + "]");
@@ -265,7 +265,7 @@ public class MariaDb {
                         case "92": //expired
                             qUpdate = conn.prepareStatement(queryStageIn);
                             qUpdate.setString(1, voidExpired);
-                            qUpdate.setString(2, prefixStatusVoid + voidExpired);
+                            qUpdate.setString(2, statusReadyProses);
                             qUpdate.setString(3, documentNumber);
                             qUpdate.executeUpdate();
                             MainCHK.tulisLog("response code : [" + status + "] with message [" + message + "]");
@@ -278,7 +278,7 @@ public class MariaDb {
                         case "99": //not found
                             qUpdate = conn.prepareStatement(queryStageIn);
                             qUpdate.setString(1, voidNotFound);
-                            qUpdate.setString(2, prefixStatusVoid + voidNotFound);
+                            qUpdate.setString(2, statusReadyProses);
                             qUpdate.setString(3, documentNumber);
                             qUpdate.executeUpdate();
                             MainCHK.tulisLog("response code : [" + status + "] with message [" + message + "]");
