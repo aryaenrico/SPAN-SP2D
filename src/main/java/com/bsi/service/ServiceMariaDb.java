@@ -65,7 +65,9 @@ public class ServiceMariaDb {
             MainCHK.tulisLog("DB Connected:" + url);
 
             String baseurl_api_magic = rb.getString("baseurl_api_magic").trim();
-            restClient = new RestClient(baseurl_api_magic);
+            String clientId = rb.getString("magic_clientId").trim();
+            String clientSecret = rb.getString("magic_clientSecret").trim();
+            restClient = new RestClient(baseurl_api_magic, clientId, clientSecret);
         } catch (ClassNotFoundException e) {
             MainCHK.tulisLog("Error 1. Cek konfigurasi koneksi database");
             e.printStackTrace(System.out);
@@ -216,6 +218,9 @@ public class ServiceMariaDb {
 
                 MainCHK.tulisLog("Checking payment method for documentnumber/beneficiaryaccount(kodeReferal):" + documentNumber + "/" + kodeReferal);
                 Response response = restClient.getMasterValidasi(kodeReferal);
+                if (response.getStatus() == 401 || response.getStatus() == 403) {
+                    response = restClient.getMasterValidasi(kodeReferal);
+                }
                 String responseString = response.readEntity(String.class);
                 JsonObject jsonObject = JsonParser.parseString(responseString).getAsJsonObject();
                 MainCHK.tulisLog("response: " + jsonObject.toString());
