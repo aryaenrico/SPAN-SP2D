@@ -520,8 +520,23 @@ public class ServiceMariaDb {
     }
 
     public void includeOutOfBalanceBO1() throws SQLException {
-        PreparedStatement qUpdate = null;
+        PreparedStatement qSelectSaldo = null, qSelectSP2D = null, qUpdate = null;
         try {
+            qSelectSaldo = conn.prepareStatement(
+                    "select * " +
+                            "from span_account " +
+                            "         join span_application_config conf on span_account.account_number = conf.config_value " +
+                            "where conf.config_name = ? ;"
+            );
+            qSelectSaldo.setString(1, "ACCT_RPKBUN_NON_GAJI");
+            MainCHK.tulisLog(qSelectSaldo.toString());
+            rs = qSelectSaldo.executeQuery();
+
+            if (rs.next())
+                ACCT_RPKBUN_NON_GAJI = rs.getString("account_number");
+            else {
+                MainCHK.tulisLog("Rekening ACCT_RPKBUN_NON_GAJI tidak ditemukan bos!!! ");
+            }
             qUpdate = conn.prepareStatement(
                     "update span_sp2d_stage_in set status = ? WHERE " +
                             "documentdate = (select config_value from span_application_config where config_name = 'APP_DATE') " +
@@ -544,8 +559,25 @@ public class ServiceMariaDb {
     }
 
     public void includeOutOfBalanceBO2() throws SQLException {
-        PreparedStatement qUpdate = null;
+
+        PreparedStatement qSelectSaldo = null, qSelectSP2D = null, qUpdate = null;
         try {
+            qSelectSaldo = conn.prepareStatement(
+                    "select * " +
+                            "from span_account " +
+                            "         join span_application_config conf on span_account.account_number = conf.config_value " +
+                            "where conf.config_name = ? ;"
+            );
+            qSelectSaldo.setString(1, "ACCT_RPKBUN_GAJI");
+            MainCHK.tulisLog(qSelectSaldo.toString());
+            rs = qSelectSaldo.executeQuery();
+
+
+            if (rs.next())
+                ACCT_RPKBUN_GAJI = rs.getString("account_number");
+            else {
+                MainCHK.tulisLog("Rekening ACCT_RPKBUN_NON_GAJI tidak ditemukan bos!!! ");
+            }
             qUpdate = conn.prepareStatement(
                     "update span_sp2d_stage_in set status = ? WHERE " +
                             "documentdate = (select config_value from span_application_config where config_name = 'APP_DATE') " +
