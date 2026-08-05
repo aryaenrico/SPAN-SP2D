@@ -14,6 +14,14 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
     <dependencies>
+        
+       
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.15.4</version>
+        </dependency>
+        
         <!-- https://mvnrepository.com/artifact/org.mariadb.jdbc/mariadb-java-client -->
         <dependency>
             <groupId>org.mariadb.jdbc</groupId>
@@ -27,12 +35,15 @@
             <version>19.22.0.0</version>
         </dependency>
 
-        <!--        -Dfile=digitalSignature.jar -DgroupId=com.bsm.ds -DartifactId=digital-signature -Dversion=1.0.0 -Dpackaging=jar -->
+        <!---Dfile=digitalSignature.jar -DgroupId=com.bsm.ds -DartifactId=digital-signature -Dversion=1.0.0 -Dpackaging=jar -->
+        <!--
         <dependency>
             <groupId>com.bsm.ds</groupId>
             <artifactId>digital-signature</artifactId>
             <version>1.0.0</version>
         </dependency>
+    -->
+        
         <dependency>
             <groupId>javax.xml.soap</groupId>
             <artifactId>javax.xml.soap-api</artifactId>
@@ -104,6 +115,8 @@
             <version>2.9.8</version>
         </dependency>
     </dependencies>
+
+
     <build>
         <plugins>
             <plugin>

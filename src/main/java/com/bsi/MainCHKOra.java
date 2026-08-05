@@ -1,6 +1,6 @@
 package com.bsi;
 
-import com.bsi.service.DigitalSignature;
+//import com.bsi.service.DigitalSignature;
 import com.bsi.service.OracleDb;
 
 import java.text.SimpleDateFormat;
@@ -24,7 +24,7 @@ public class MainCHKOra {
             //debug only
             tulisLog("Debugging...");
 //            oracleDb = new OracleDb("/Users/choirulrahmadan/BSI/SpanPlay/conf/", "bo2span");
-            chkDS("/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/bo2span.properties",
+            //chkDS("/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/bo2span.properties",
                     "/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/525451000990_SP2D_O_20220921_130509_073.xml");
             System.exit(0);
         } else if (args.length < 3) {
@@ -90,7 +90,7 @@ public class MainCHKOra {
                 }
                 break;
             case "chkDS":
-                chkDS(propPath + propName + ".properties", args[4] + "");
+                //chkDS(propPath + propName + ".properties", args[4] + "");
                 break;
             default:
                 // code block
@@ -128,15 +128,17 @@ public class MainCHKOra {
         System.out.println(txt + "");
     }
 
+    /*
     public static void chkDS(String DSprop, String fileXml) {
         DigitalSignature digitalSignature = new DigitalSignature(
                 DSprop
-//                "/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/bo2span.properties"
+                "/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/bo2span.properties"
         );
         tulisLog("************************************************ CHECK DS ****************************************************");
         boolean result = digitalSignature.checkDigitalSignatureFile(fileXml);
         tulisLog("result chkDS " + fileXml + " :" + result);
         tulisLog("************************************************ END CHECK DS ***************************************************");
     }
+         */
 
 }

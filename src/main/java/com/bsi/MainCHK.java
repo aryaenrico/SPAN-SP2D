@@ -1,10 +1,19 @@
 package com.bsi;
 
-import com.bsi.service.DigitalSignature;
+
+import com.bsi.entity.mock.ProcessBifast;
+import com.bsi.entity.mock.SpanSp2dStageIn;
 import com.bsi.service.ServiceMariaDb;
 
+import java.sql.SQLException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -27,8 +36,7 @@ public class MainCHK {
             //debug only
             tulisLog("Debugging...");
 //            mariaDb = new MariaDb("/Users/choirulrahmadan/BSI/SpanPlay/conf/", "bo2span");
-            chkDS("/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/bo2span.properties",
-                    "/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/525451000990_SP2D_O_20220921_130509_073.xml");
+//            chkDS("/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/bo2span.properties","/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/525451000990_SP2D_O_20220921_130509_073.xml");
             System.exit(0);
         } else if (args.length < 3) {
             tulisLog("Param tidak lengkap!");
@@ -110,8 +118,97 @@ public class MainCHK {
                     e.printStackTrace(System.out);
                 }
                 break;
+            case "includeOutOfBalanceBO2Bifast":
+                  try {
+                    serviceMariaDb.includeOutOfBalanceBifastBo2();
+                    tulisLog("includeOutOfBalanceBO2Bifast done");
+                } catch (Throwable e) {
+                    tulisLog("Throwable :" + e.getMessage());
+                    e.printStackTrace(System.out);
+                }
+                break; 
+            case "excludeOutOfBalanceBO2Bifast":
+                  try {
+                    serviceMariaDb.excludeOutOfBalanceBifastBo2();;
+                    tulisLog("excludeOutOfBalanceBO2Bifast done");
+                } catch (Throwable e) {
+                    tulisLog("Throwable :" + e.getMessage());
+                    e.printStackTrace(System.out);
+                }
+                break; 
+                case "includeOutOfBalanceBO1Bifast":
+                  try {
+                    serviceMariaDb.includeOutOfBalanceBifastBo1();
+                    tulisLog("includeOutOfBalanceBO1 done");
+                } catch (Throwable e) {
+                    tulisLog("Throwable :" + e.getMessage());
+                    e.printStackTrace(System.out);
+                }
+                break; 
+
+                case "excludeOutOfBalanceBO1Bifast":
+                  try {
+                    serviceMariaDb.excludeOutOfBalanceBifastBo1();
+                    tulisLog("excludeOutOfBalanceBifastBo1 done");
+                } catch (Throwable e) {
+                    tulisLog("Throwable :" + e.getMessage());
+                    e.printStackTrace(System.out);
+                }
+                break;
+            // [NEW][2026-08-03] Implementasi Multi-Threading: Memanggil paymentBifast dengan 3 worker threads
+            case "prosesTransactionBifast":
+                try {
+                    tulisLog("[MULTI-THREAD] Running command prosesTransactionBifast...");
+                    List<SpanSp2dStageIn> dataBifast = serviceMariaDb.getDataBifast("BO2");
+                    ProcessBifast processBifast = new ProcessBifast();
+                    processBifast.paymentBifast(dataBifast, "BO2");
+                    tulisLog("prosesTransactionBifast done..");
+                } catch (Throwable e) {
+                    tulisLog("Throwable :" + e.getMessage());
+                    e.printStackTrace(System.out);
+                }
+                break; 
+            // [NEW][2026-08-03] GAP 7: Scheduler command untuk memproses transaksi BI-FAST yang Timeout (TMO-000)
+            case "prosesTimeoutCtBifast":
+                try {
+                    tulisLog("[GAP7] Running command prosesTimeoutCtBifast...");
+                    List<SpanSp2dStageIn> dataTmo = serviceMariaDb.getDataBifastByStatus(serviceMariaDb.statusTimeoutCreditTransferBifast);
+                    ProcessBifast processBifast = new ProcessBifast();
+                    processBifast.prosesTimeoutCtBifast(dataTmo);
+                    tulisLog("prosesTimeoutCtBifast done..");
+                } catch (Throwable e) {
+                    tulisLog("Throwable :" + e.getMessage());
+                    e.printStackTrace(System.out);
+                }
+                break;
+            // [NEW][2026-08-03] GAP 7: Scheduler command untuk memproses ulang check status BI-FAST (RGS-000)
+            case "prosesRetryGetstatus":
+                try {
+                    tulisLog("[GAP7] Running command prosesRetryGetstatus...");
+                    List<SpanSp2dStageIn> dataRgs = serviceMariaDb.getDataBifastByStatus(serviceMariaDb.statusForRetryGetstatus);
+                    ProcessBifast processBifast = new ProcessBifast();
+                    processBifast.prosesTimeoutCtBifast(dataRgs);
+                    tulisLog("prosesRetryGetstatus done..");
+                } catch (Throwable e) {
+                    tulisLog("Throwable :" + e.getMessage());
+                    e.printStackTrace(System.out);
+                }
+                break;
+            // [NEW][2026-08-03] GAP 7: Scheduler command untuk memproses ulang Retur T24 yang gagal/timeout (RRS-000)
+            case "prosesRetryRetur":
+                try {
+                    tulisLog("[GAP7] Running command prosesRetryRetur...");
+                    List<SpanSp2dStageIn> dataRrs = serviceMariaDb.getDataBifastByStatus(serviceMariaDb.statusForRetryRetur);
+                    ProcessBifast processBifast = new ProcessBifast();
+                    processBifast.prosesRetryRetur(dataRrs);
+                    tulisLog("prosesRetryRetur done..");
+                } catch (Throwable e) {
+                    tulisLog("Throwable :" + e.getMessage());
+                    e.printStackTrace(System.out);
+                }
+                break;
             case "chkDS":
-                chkDS(propPath + propName + ".properties", args[4] + "");
+                //chkDS(propPath + propName + ".properties", args[4] + "");
                 break;
             default:
                 // code block
@@ -148,16 +245,4 @@ public class MainCHK {
         MainCHK.logger.log(Level.INFO, txt + "");
         System.out.println(txt + "");
     }
-
-    public static void chkDS(String DSprop, String fileXml) {
-        DigitalSignature digitalSignature = new DigitalSignature(
-                DSprop
-//                "/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/bo2span.properties"
-        );
-        tulisLog("************************************************ CHECK DS ****************************************************");
-        boolean result = digitalSignature.checkDigitalSignatureFile(fileXml);
-        tulisLog("result chkDS " + fileXml + " :" + result);
-        tulisLog("************************************************ END CHECK DS ***************************************************");
-    }
-
 }
