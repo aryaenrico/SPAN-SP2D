@@ -17,8 +17,8 @@ import com.bsi.entity.bifast.accountinquiry.AccountInquiryRequest;
 import com.bsi.entity.bifast.accountinquiry.AccountInquiryResponse;
 import com.bsi.entity.bifast.credittransfer.CreditTransferRequest;
 import com.bsi.entity.bifast.credittransfer.CreditTransferResponse;
-import com.bsi.entity.bifast.transactioninquiry.TransactionInquiryRequest;
-import com.bsi.entity.bifast.transactioninquiry.TransactionInquiryResponse;
+import com.bsi.entity.bifast.transactioninquiry.PaymenStatusRequest;
+import com.bsi.entity.bifast.transactioninquiry.PaymentStatusResponse;
 import com.bsi.entity.span.BifastRcMapping;
 import com.bsi.entity.t24.FundsTransferSoapResponse;
 import com.bsi.service.BifastClient;
@@ -57,13 +57,13 @@ public class ProcessBifast {
     // independen sendiri. Eksekusi HTTP REST/SOAP dan DB I/O kini berjalan 100% paralel secara optimal.
     public String paymentBifast(List<SpanSp2dStageIn> processData, String typeTransaction) {
         if (processData == null || processData.isEmpty()) {
-            MainCHK.tulisLog("[MULTI-THREAD] Tidak ada data BI-FAST RPB-000 untuk diproses.");
+            MainCHK.tulisLog("Tidak ada data BI-FAST untuk diproses.");
             return "00";
         }
 
         int numThreads = 3;
         int totalData = processData.size();
-        MainCHK.tulisLog("[MULTI-THREAD][2026-08-04] Memulai pemrosesan " + totalData + " data BI-FAST dengan " + numThreads + " Dedicated Worker Threads (1 DB Conn/Thread)...");
+        MainCHK.tulisLog("[MULTI-THREAD] Memulai pemrosesan " + totalData + " data BI-FAST dengan " + numThreads + " Dedicated Worker Threads (1 DB Conn/Thread)...");
 
         // Fetch mapping awal menggunakan koneksi sementara
         Map<String, BifastRcMapping> mappingRcAe;
@@ -169,7 +169,9 @@ public class ProcessBifast {
         String mappingRcSpan = "";
 
         if (accountInquiryResponse.getResponseCode().equals("25")) {
+            MainCHK.tulisLog("HADUHHHH");
             accountNoutFound = isRc25ForAccountnotFound(Utillity.safe(accountInquiryResponse.getResponseMessage()));
+            
             if (!accountNoutFound) {
                 beneficiaryBankIsnotAvailable = isRc25ForBankMaintanance(Utillity.safe(accountInquiryResponse.getResponseMessage()));
             }
@@ -191,10 +193,12 @@ public class ProcessBifast {
 
         // Case 1 : Ae dan ct sukses
         if (accountInquiryResponse.isSuccess() && isAccountValid) {
+
             executeCreditTransferFlow(item, mariaDb);
         }
         // case 2 : AE retur 
         else if (isReturCode) {
+            MainCHK.tulisLog("Proses Retur");
             executeAccountInquiryReturFlow(item, accountInquiryResponse, mariaDb);
         }
         else if (beneficiaryBankIsnotAvailable) {
@@ -245,11 +249,13 @@ public class ProcessBifast {
             }
 
             MainCHK.tulisLog("Proses CT selesai dengan Response Code: " + ctResponse.getResponseCode());
+          
             if (ctResponse.isSuccess()) {
                 ctResponse.setReferenceId(("FTDUMMY_HARUSNYA INI DARI ESB"));
                 mariaDb.postingMessageAfterCt(item, ctResponse);
                 mariaDb.prosesAck(item.getDocumentNumber());
             } else {
+                MainCHK.tulisLog("HADUHHHHHH");
                 handleCreditTransferFailure(item, ctResponse, mariaDb);
             }
         } catch (Exception e) {
@@ -266,7 +272,7 @@ public class ProcessBifast {
         boolean failedResponseFromCi = "25".equals(respCode);
 
         // Skenario 1: Timeout BI-FAST Hub (RC 51)
-        if (timeoutFromCi) {
+        if (true) {
             mariaDb.handleResponseTimeoutFromCi(item);
             int numOfRetryStatus = mariaDb.getNumRetryStatus(item);
             if (numOfRetryStatus < 5) {
@@ -323,11 +329,15 @@ public class ProcessBifast {
             MainCHK.tulisLog("Sukses retur AE transaksi: " + resp.getTransactionId());
             try {
                 SpanSp2dStageIn dataRetur = cloneItemForRetur(item);
-
                 dataRetur.setBeneficiaryAccount(creditAccount);
                 dataRetur.setAgentBankAccountNumber(debitAccount);
                 dataRetur.setAgentBankAccountName(agentBankAccountName);
 
+                // Fetch mapping awal menggunakan koneksi sementara
+                 ;
+                String mappingRcSpan = getMappingRc25(mariaDb.getBifastMappingRcAe());
+
+                mariaDb.updateEsbResponseCode(item, mappingRcSpan);
                 mariaDb.insertReturDatainPostingTable(dataRetur, resp);
                 mariaDb.updateSp2dstageinAEerror(item);
                 mariaDb.prosesAckRetur(item.getDocumentNumber());
@@ -421,17 +431,17 @@ public class ProcessBifast {
 
     public void handleCreditTransferTimeout(SpanSp2dStageIn item, CreditTransferResponse cTransferResponse, ServiceMariaDb mariaDb) {
         try {
-            MainCHK.tulisLog("Memproses Status Inquiry CT untuk doc: " + item.getDocumentNumber() + " [code=" + cTransferResponse.getResponseCode() + "]");
+            MainCHK.tulisLog("Memproses Status Payment Request  untuk doc: " + item.getDocumentNumber() + " [code=" + cTransferResponse.getResponseCode() + "]");
 
-            TransactionInquiryRequest tiRequest = new TransactionInquiryRequest();
+            PaymenStatusRequest tiRequest = new PaymenStatusRequest();
             tiRequest.setRequestId(RequestIdGenerator.generateRequestID());
             tiRequest.setChannelType("02");
             tiRequest.setBicSendSys("BSMDIDJA");
             tiRequest.setBicRecvSys("FASTIDJA");
             tiRequest.setOriginator("O");
-            tiRequest.setEndToEndId(Utillity.safe(cTransferResponse.getEndToEndId()));
+            tiRequest.setEndToEndId("Dummy end to end id ");
 
-            TransactionInquiryResponse tiResponse = null;
+            PaymentStatusResponse tiResponse = null;
 
             try {
                 tiResponse = client.transactionInquiry(tiRequest);
@@ -464,8 +474,19 @@ public class ProcessBifast {
                     try {
                         int counterUpdate = mariaDb.getNumRetryStatus(item) + 1;
                         MainCHK.tulisLog("Counter retry check status sekarang: " + counterUpdate);
+                        // 2026-08-06
+                        if (counterUpdate == 5){
+                        CreditTransferResponse ctResponse = new CreditTransferResponse();
+                        ctResponse.setResponseCode("000");
+                        ctResponse.setReferenceId("FT DUMMY TOBE NYA HARUS DARI ESB ");
+                        mariaDb.postingMessageAfterCt(item, ctResponse);
+                        mariaDb.prosesAck(item.getDocumentNumber());
+                        } else {
                         mariaDb.increaseCounterCheckstatusBifast(item, counterUpdate);
                         mariaDb.initiateRetryCheckStatus(item);
+                        }
+                         // 2026-08-06
+                       
                     } catch (SQLException e) {
                         MainCHK.tulisLog("Error update counter retry status: " + e.getMessage());
                     }
@@ -572,6 +593,8 @@ public class ProcessBifast {
         String safeMessage = (responseMessage != null) ? responseMessage.toUpperCase() : "";
         if (safeMessage.contains("U136")) {
             return true;
+        }else if (safeMessage.contains("53")){
+            return true;
         }
         return false;
     }
@@ -636,7 +659,5 @@ public class ProcessBifast {
             try { threadMariaDb.close(); } catch (Exception e) {}
         }
     }
-}
-  
 }
 

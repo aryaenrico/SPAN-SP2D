@@ -17,8 +17,8 @@ import com.bsi.entity.bifast.accountinquiry.AccountInquiryRequest;
 import com.bsi.entity.bifast.accountinquiry.AccountInquiryResponse;
 import com.bsi.entity.bifast.credittransfer.CreditTransferRequest;
 import com.bsi.entity.bifast.credittransfer.CreditTransferResponse;
-import com.bsi.entity.bifast.transactioninquiry.TransactionInquiryRequest;
-import com.bsi.entity.bifast.transactioninquiry.TransactionInquiryResponse;
+import com.bsi.entity.bifast.transactioninquiry.PaymenStatusRequest;
+import com.bsi.entity.bifast.transactioninquiry.PaymentStatusResponse;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -41,12 +41,12 @@ public class BifastClient {
         return post (config.getEndpointCT(), request,CreditTransferResponse.class);
     }
 
-    public TransactionInquiryResponse transactionInquiry(TransactionInquiryRequest request){
+    public PaymentStatusResponse transactionInquiry(PaymenStatusRequest request){
     if (config.getEndpointTi() == null || config.getEndpointTi().trim().isEmpty()) {
         log.warn("Endpoint Transaction Inquiry belum dikonfigurasi/kontrak API ESB belum tersedia");
         throw new ApiClientException("Endpoint Transaction Inquiry belum dikonfigurasi di properties", -1, null);
     }
-    return post(config.getEndpointTi(), request, com.bsi.entity.bifast.transactioninquiry.TransactionInquiryResponse.class);
+    return post(config.getEndpointTi(), request, com.bsi.entity.bifast.transactioninquiry.PaymentStatusResponse.class);
 }
 
 private <T> T post(String path, Object requestBody, Class<T> responseType) { 

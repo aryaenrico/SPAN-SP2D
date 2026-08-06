@@ -4,7 +4,6 @@ package com.bsi;
 import com.bsi.entity.mock.ProcessBifast;
 import com.bsi.entity.mock.SpanSp2dStageIn;
 import com.bsi.service.ServiceMariaDb;
-
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -118,43 +117,6 @@ public class MainCHK {
                     e.printStackTrace(System.out);
                 }
                 break;
-            case "includeOutOfBalanceBO2Bifast":
-                  try {
-                    serviceMariaDb.includeOutOfBalanceBifastBo2();
-                    tulisLog("includeOutOfBalanceBO2Bifast done");
-                } catch (Throwable e) {
-                    tulisLog("Throwable :" + e.getMessage());
-                    e.printStackTrace(System.out);
-                }
-                break; 
-            case "excludeOutOfBalanceBO2Bifast":
-                  try {
-                    serviceMariaDb.excludeOutOfBalanceBifastBo2();;
-                    tulisLog("excludeOutOfBalanceBO2Bifast done");
-                } catch (Throwable e) {
-                    tulisLog("Throwable :" + e.getMessage());
-                    e.printStackTrace(System.out);
-                }
-                break; 
-                case "includeOutOfBalanceBO1Bifast":
-                  try {
-                    serviceMariaDb.includeOutOfBalanceBifastBo1();
-                    tulisLog("includeOutOfBalanceBO1 done");
-                } catch (Throwable e) {
-                    tulisLog("Throwable :" + e.getMessage());
-                    e.printStackTrace(System.out);
-                }
-                break; 
-
-                case "excludeOutOfBalanceBO1Bifast":
-                  try {
-                    serviceMariaDb.excludeOutOfBalanceBifastBo1();
-                    tulisLog("excludeOutOfBalanceBifastBo1 done");
-                } catch (Throwable e) {
-                    tulisLog("Throwable :" + e.getMessage());
-                    e.printStackTrace(System.out);
-                }
-                break;
             // [NEW][2026-08-03] Implementasi Multi-Threading: Memanggil paymentBifast dengan 3 worker threads
             case "prosesTransactionBifast":
                 try {
@@ -245,4 +207,16 @@ public class MainCHK {
         MainCHK.logger.log(Level.INFO, txt + "");
         System.out.println(txt + "");
     }
+
+    public static void chkDS(String DSprop, String fileXml) {
+        DigitalSignature digitalSignature = new DigitalSignature(
+                DSprop
+//                "/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/bo2span.properties"
+        );
+        tulisLog("************************************************ CHECK DS ****************************************************");
+        boolean result = digitalSignature.checkDigitalSignatureFile(fileXml);
+        tulisLog("result chkDS " + fileXml + " :" + result);
+        tulisLog("************************************************ END CHECK DS ***************************************************");
+    }
+
 }

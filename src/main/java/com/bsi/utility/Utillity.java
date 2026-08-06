@@ -146,6 +146,31 @@ public class Utillity {
         return map;
     }
 
+    public static Map<String, BifastRcMapping> fetchBifastRcMappingCt(Connection conn) throws SQLException {
+        String sql = "SELECT id, service_type, bifast_rc, bifast_description,span_rc , description_state from bifast_response_mapping " +
+                     "WHERE service_type = 'CREDIT_TRANSFER' ";
+        Map<String, BifastRcMapping> map = new HashMap<>();
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                BifastRcMapping rc = new BifastRcMapping();
+                rc.id          = rs.getLong("id");
+                rc.service_type        = rs.getString("service_type");
+                rc.bifast_rc = rs.getString("bifast_rc");
+                rc.bifast_description      = rs.getString("bifast_description");
+                rc.span_rc = rs.getString("span_rc");
+                rc.description_state =rs.getString("description_state");
+
+                String key = rc.bifast_rc;
+                while (map.containsKey(key)) {
+                    key = key + "U";
+                }
+                map.put(key, rc);
+            }
+        }
+        return map;
+    }
+
    public static String safe(String s) { return s != null ? s : ""; }
 
    public static Map<String,PaymentMethod> fetchPaymentMethod (Connection conn) throws SQLException{

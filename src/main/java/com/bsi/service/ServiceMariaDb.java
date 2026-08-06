@@ -80,6 +80,7 @@ public class ServiceMariaDb {
     public final String rcForFailedProcess ="25";
     public final String rcForTimeoutCoreProcess ="57";
     public final String rcForCorePostingFailed ="05";
+    public final String rcForTimeoutGetstatus ="68";
 
     
 
@@ -862,7 +863,7 @@ public class ServiceMariaDb {
     
     public void failedProcessBifast(SpanSp2dStageIn item,String responseCode) throws SQLException{
         String sql = "UPDATE span_sp2d_stage_in " +
-                     "SET esb_response_code = ? " +
+                     "SET bifast_response_code = ? " +
                      "WHERE documentnumber = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)){
             ps.setString(1, responseCode);
@@ -910,14 +911,21 @@ public class ServiceMariaDb {
         updateEsbResponseCode(item, rcForCorePostingFailed);
     }
 
+
+     // 2026-08-06
     public void handleResponseTimeoutFromCi(SpanSp2dStageIn item) throws SQLException{
-       String sql = "UPDATE span_sp2d_stage_in " +
-                    "SET status = ? , esb_response_code = ? "+
+       
+        Map<String,BifastRcMapping> map = Utillity.fetchBifastRcMappingCt(conn);
+        String rcBifast = map.get(rcForTimeoutCtProcess).span_rc;
+     
+      
+        String sql ="UPDATE span_sp2d_stage_in " +
+                    "SET status = ? , bifast_response_code = ? "+
                     "WHERE documentnumber = ? " +
                     "AND status = ? ";
         try (PreparedStatement ps  = conn.prepareStatement(sql)) {
             ps.setString(1, statusTimeoutCreditTransferBifast);
-            ps.setString(2, rcForTimeoutCtProcess);
+            ps.setString(2, rcBifast);
             ps.setString(3, item.getDocumentNumber());
             ps.setString(4, statusReadyPosting);
             MainCHK.tulisLog("Query Timeout Ci" +ps);
@@ -978,14 +986,18 @@ public class ServiceMariaDb {
         }
     }
 
+    // 2026-08-06
     public void initiateRetryCheckStatus(SpanSp2dStageIn item) throws SQLException{
+        Map<String,BifastRcMapping> map = Utillity.fetchBifastRcMappingCt(conn);
+        String rcBifast = map.get(rcForTimeoutGetstatus).span_rc;
         String sql = "UPDATE span_sp2d_stage_in " +
-                     "SET status = ? " +
+                     "SET status = ? , bifast_response_code = ? " +
                      "WHERE documentnumber = ? "+
                      "AND paymentmethod = '5'";
         try (PreparedStatement ps = conn.prepareStatement(sql)){
             ps.setString(1, statusForRetryGetstatus);
-            ps.setString(2, item.getDocumentNumber());
+             ps.setString(2, rcBifast);
+            ps.setString(3, item.getDocumentNumber());
             ps.executeUpdate();
         }            
     }

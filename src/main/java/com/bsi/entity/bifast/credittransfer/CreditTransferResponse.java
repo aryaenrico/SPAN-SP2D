@@ -19,7 +19,7 @@ public class CreditTransferResponse {
     private String endToEndId;
     
     public boolean isSuccess() {
-        return "000".equals(responseCode);
+        return "00".equals(responseCode);
     }
     
     public String getResponseId() { return responseId; }

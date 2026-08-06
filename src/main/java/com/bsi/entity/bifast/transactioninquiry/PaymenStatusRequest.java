@@ -3,7 +3,7 @@ package com.bsi.entity.bifast.transactioninquiry;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class TransactionInquiryRequest {
+public class PaymenStatusRequest {
     private String requestId;
     private String channelType;
     private String bicSendSys;
