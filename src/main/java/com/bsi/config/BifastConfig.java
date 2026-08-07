@@ -16,7 +16,7 @@ public class BifastConfig {
     private String endpointAe;
     private String endpointTi;
 
-    private static String DEFAULT_PROPERTIES = "bifast.properties";
+    //private static String DEFAULT_PROPERTIES = "bifast.properties";
     
     
     public void setendpointTi (String endpointTI){
@@ -70,9 +70,7 @@ public class BifastConfig {
         return this.readTimeoutms;
     }
 
-    public static BifastConfig fromProperties(){
-       return fromProperties(DEFAULT_PROPERTIES);
-    }
+   
 
     public static BifastConfig fromProperties(String location){
        Properties props = new Properties();
@@ -109,7 +107,8 @@ public class BifastConfig {
          cfg.setapiKey(trimToNull(prop.getProperty("bifast.apiKey")));
          cfg.setConnectTimeoutms(trimToNull(prop.getProperty("bifast.connectTimeoutMs")));
          cfg.setreadTimeoutms(trimToNull(prop.getProperty("bifast.readTimeoutMs")));
-        return cfg;
+         cfg.setendpointTi(trimToNull(prop.getProperty("bifast.paymentRequest.endpointUrl")));
+         return cfg;
     }
 
     private static String trimToNull(String value){

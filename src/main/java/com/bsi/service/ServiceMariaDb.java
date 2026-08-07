@@ -21,6 +21,8 @@ import com.bsi.utility.RequestIdGenerator;
 import com.bsi.utility.Utillity;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+
+import javax.swing.text.Utilities;
 import javax.ws.rs.core.Response;
 import java.io.File;
 import java.io.IOException;
@@ -844,18 +846,13 @@ public class ServiceMariaDb {
 
 
     public void finalizeSuccessRecords(SpanSp2dStageIn stagein) throws SQLException {
-          String acctGaji   = spanConfig.getAcctRpkbunGaji();
-          String acctRrGaji = spanConfig.getAcctRrRpkbunGaji();
-          String sql = "UPDATE span_sp2d_stage_in SET date_posting = ?, status = 'FIN-000' " +
-                 "WHERE status = ? " +
-                 "AND agentbankaccountnumber IN ('" + acctGaji + "','" + acctRrGaji + "') " + 
-                 "AND paymentmethod = '5' " +
-                 "AND documentnumber = ? "
-                  ;
+       String sql = Utillity.finalizeSuccesRecord(spanConfig.getAcctRpkbunGaji(),spanConfig.getAcctRrRpkbunGaji());
        try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
             ps.setString(2,statusReadyPosting);
-            ps.setString(3,stagein.getDocumentNumber());
+            ps.setString(3, statusForRetryGetstatus );
+            ps.setString(4, statusTimeoutCreditTransferBifast);
+            ps.setString(5,stagein.getDocumentNumber());
             int updated = ps.executeUpdate();
         System.out.println("Finalized " + updated + " record(s): PST-000 → FIN-000");
     }
@@ -915,21 +912,23 @@ public class ServiceMariaDb {
      // 2026-08-06
     public void handleResponseTimeoutFromCi(SpanSp2dStageIn item) throws SQLException{
        
+        MainCHK.tulisLog("Sebelum Eror");
         Map<String,BifastRcMapping> map = Utillity.fetchBifastRcMappingCt(conn);
-        String rcBifast = map.get(rcForTimeoutCtProcess).span_rc;
-     
+        
+        String rcBifast = map != null ? Utillity.safe(map.get(rcForTimeoutCtProcess).span_rc) : "";
       
         String sql ="UPDATE span_sp2d_stage_in " +
                     "SET status = ? , bifast_response_code = ? "+
                     "WHERE documentnumber = ? " +
                     "AND status = ? ";
+
         try (PreparedStatement ps  = conn.prepareStatement(sql)) {
             ps.setString(1, statusTimeoutCreditTransferBifast);
             ps.setString(2, rcBifast);
             ps.setString(3, item.getDocumentNumber());
             ps.setString(4, statusReadyPosting);
-            MainCHK.tulisLog("Query Timeout Ci" +ps);
             int updated = ps.executeUpdate();
+
             if (updated > 0) {
             MainCHK.tulisLog("Status diubah ke TMO-000 (timeout) untuk id: " + item.getId()
                            + " doc: " + item.getDocumentNumber());
@@ -1212,7 +1211,7 @@ public class ServiceMariaDb {
 
      public void prosesAckRetur(String documentNumber){
         GenerateAckOut generateAckOut = new GenerateAckOut();
-        MainCHK.tulisLog("Ini proses generate ack retur");
+        MainCHK.tulisLog("Proses generate ack retur");
        try{
         List<SpanSp2dPosting> source = fetchSp2dPostingForAckRetur(documentNumber);
         MainCHK.tulisLog("Jumlah Array data " + source.size());

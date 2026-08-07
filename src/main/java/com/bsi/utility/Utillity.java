@@ -325,4 +325,14 @@ public class Utillity {
          }
          return result;
      }
+
+   public static String finalizeSuccesRecord(String sourceAccount , String sourceRetur ){
+    
+    return  "UPDATE span_sp2d_stage_in SET date_posting = ?, status = 'FIN-000' " +
+                 "WHERE status = ?  OR status = ?   OR status = ? "  +
+                 "AND agentbankaccountnumber IN ('" + sourceAccount + "','" + sourceRetur + "') " + 
+                 "AND paymentmethod = '5' " +
+                 "AND documentnumber = ? "
+                  ;
+   }  
 }

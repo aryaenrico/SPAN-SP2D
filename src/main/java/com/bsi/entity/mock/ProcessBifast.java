@@ -1,5 +1,6 @@
 package com.bsi.entity.mock;
 
+import java.io.File;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +31,10 @@ import com.bsi.utility.Utillity;
 
 public class ProcessBifast {
 
-    BifastConfig config = BifastConfig.fromProperties();
+    private final String pathProp = "C:/Users/ven.arya/Downloads/Project/2026/SPAN/Custom Handler/span-custom-handler/tesDs";
+    private final String propName = "bo2span";
+    
+    BifastConfig config = BifastConfig.fromProperties("C:/Users/ven.arya/Downloads/Project/2026/SPAN/Custom Handler/span-custom-handler/tesDs"+ File.separator + "bo2span.properties");
     BifastClient client = new BifastClient(config);
 
     T24Config configT24 = T24Config.fromProperties();
@@ -44,8 +48,7 @@ public class ProcessBifast {
     private final String rcFailedCt = "CT022";
     private final String rcFailedCtBankMaintanace = "CT021";
 
-    private final String pathProp = "C:/Users/ven.arya/Downloads/Project/2026/SPAN/Custom Handler/span-custom-handler/tesDs";
-    private final String propName = "bo2span";
+  
 
     // [NEW][2026-08-04] Factory method untuk membuat dedicated instance ServiceMariaDb (1 koneksi DB terisolasi per Worker Thread)
     private ServiceMariaDb createMariaDbInstance() {
@@ -192,8 +195,8 @@ public class ProcessBifast {
         MainCHK.tulisLog("Status Ae " + accountInquiryResponse.getResponseCode());
 
         // Case 1 : Ae dan ct sukses
-        if (accountInquiryResponse.isSuccess() && isAccountValid) {
-
+        //if (accountInquiryResponse.isSuccess() && isAccountValid) {
+        if (true){
             executeCreditTransferFlow(item, mariaDb);
         }
         // case 2 : AE retur 
@@ -439,7 +442,7 @@ public class ProcessBifast {
             tiRequest.setBicSendSys("BSMDIDJA");
             tiRequest.setBicRecvSys("FASTIDJA");
             tiRequest.setOriginator("O");
-            tiRequest.setEndToEndId("Dummy end to end id ");
+            tiRequest.setEndToEndId("20260729BSMDIDJA010O0250004315");
 
             PaymentStatusResponse tiResponse = null;
 
@@ -475,6 +478,7 @@ public class ProcessBifast {
                         int counterUpdate = mariaDb.getNumRetryStatus(item) + 1;
                         MainCHK.tulisLog("Counter retry check status sekarang: " + counterUpdate);
                         // 2026-08-06
+                        MainCHK.tulisLog("Jumlah"+counterUpdate);
                         if (counterUpdate == 5){
                         CreditTransferResponse ctResponse = new CreditTransferResponse();
                         ctResponse.setResponseCode("000");
@@ -482,9 +486,10 @@ public class ProcessBifast {
                         mariaDb.postingMessageAfterCt(item, ctResponse);
                         mariaDb.prosesAck(item.getDocumentNumber());
                         } else {
-                        mariaDb.increaseCounterCheckstatusBifast(item, counterUpdate);
                         mariaDb.initiateRetryCheckStatus(item);
                         }
+                        MainCHK.tulisLog("Increment counter");
+                        mariaDb.increaseCounterCheckstatusBifast(item, counterUpdate);
                          // 2026-08-06
                        
                     } catch (SQLException e) {
@@ -507,8 +512,17 @@ public class ProcessBifast {
                 try {
                     int counterUpdate = mariaDb.getNumRetryStatus(item) + 1;
                     MainCHK.tulisLog("Counter retry check status sekarang: " + counterUpdate);
-                    mariaDb.increaseCounterCheckstatusBifast(item, counterUpdate);
-                    mariaDb.initiateRetryCheckStatus(item);
+                    if (counterUpdate == 5){
+                        CreditTransferResponse ctResponse = new CreditTransferResponse();
+                        ctResponse.setResponseCode("000");
+                        ctResponse.setReferenceId("FT DUMMY TOBE NYA HARUS DARI ESB ");
+                        mariaDb.postingMessageAfterCt(item, ctResponse);
+                        mariaDb.prosesAck(item.getDocumentNumber());
+                        }else {
+                        mariaDb.initiateRetryCheckStatus(item);
+                        }
+                        MainCHK.tulisLog("Increment counter");
+                        mariaDb.increaseCounterCheckstatusBifast(item, counterUpdate);
                 } catch (SQLException e) {
                     MainCHK.tulisLog("Error update counter retry status: " + e.getMessage());
                 }
