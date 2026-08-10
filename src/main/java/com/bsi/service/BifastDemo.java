@@ -26,11 +26,20 @@ public class BifastDemo {
        MainCHK.tulisLog("prosesTransactionBifast done..");
         */
 
+       /* 
         MainCHK.tulisLog("Running command proses Retry Retur...");
         List<SpanSp2dStageIn> dataRrs = mariaDb.getDataBifastForSchedulerPurpose(mariaDb.statusForRetryRetur);
         ProcessBifast processBifast = new ProcessBifast();
         processBifast.prosesRetryRetur(dataRrs);
         MainCHK.tulisLog("proses Retry Retur done..");
+
+        */
+
+         MainCHK.tulisLog("Running scheduler prosesRetryGetstatus...");
+         List<SpanSp2dStageIn> dataRgs = mariaDb.getDataBifastForSchedulerPurpose(mariaDb.statusForRetryGetstatus);
+         ProcessBifast processBifast = new ProcessBifast();
+         processBifast.prosesTimeoutCtBifast(dataRgs);
+         MainCHK.tulisLog("prosesRetryGetstatus done..");
     } catch (SQLException E){
 
     }

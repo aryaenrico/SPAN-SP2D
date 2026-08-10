@@ -874,19 +874,37 @@ public class ServiceMariaDb {
         System.out.println("Finalized " + updated + " record(s): RRS-000 → FIN-000");
     }
   } 
+
+   public void finalizeSuccessRecordsAfterGetStatus(SpanSp2dStageIn stagein) throws SQLException {
+       String sql = Utillity.finalizeSuccesRecord(spanConfig.getAcctRpkbunGaji(),spanConfig.getAcctRrRpkbunGaji());
+       try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
+            ps.setString(2, statusForRetryGetstatus);
+            ps.setString(3,stagein.getDocumentNumber());
+            int updated = ps.executeUpdate();
+        System.out.println("Finalized " + updated + " record(s): RGS-000 → FIN-000");
+    }
+  } 
     
     public void failedProcessBifast(SpanSp2dStageIn item,String responseCode) throws SQLException{
-        String sql = "UPDATE span_sp2d_stage_in " +
-                     "SET bifast_response_code = ? " +
-                     "WHERE documentnumber = ?";
+        
+        Map<String,BifastRcMapping> map = Utillity.fetchBifastRcMappingCt(conn);
+        String rcBifast = map != null ? Utillity.safe(map.get(rcForTimeoutCtProcess).span_rc) : "";
+
+        String sql ="UPDATE span_sp2d_stage_in " +
+                    "SET bifast_response_code = ? "+
+                    "WHERE documentnumber = ? " +
+                    "AND status = ? ";
+       
         try (PreparedStatement ps = conn.prepareStatement(sql)){
-            ps.setString(1, responseCode);
+            ps.setString(1, rcBifast);
             ps.setString(2, item.getDocumentNumber());
+            ps.setString(3, statusReadyPosting);
             int updated = ps.executeUpdate();
             if (updated > 0) {
-                MainCHK.tulisLog("Updated esb_response_code = '" + responseCode + "' pada span_sp2d_stage_in untuk doc: " + item.getDocumentNumber());
+                MainCHK.tulisLog("Updated bifast_response_code = '" + responseCode + "' pada span_sp2d_stage_in untuk doc: " + item.getDocumentNumber());
             } else {
-                MainCHK.tulisLog("Gagal update esb_response_code untuk doc: " + item.getDocumentNumber());
+                MainCHK.tulisLog("Gagal update bifast_response_code untuk doc: " + item.getDocumentNumber());
             }
         }             
     }
@@ -909,18 +927,18 @@ public class ServiceMariaDb {
     }
 
 
-    public void updateEsbResponseCode(SpanSp2dStageIn item, String responseCode) throws SQLException {
+    public void updateBifastResponseCode(SpanSp2dStageIn item, String responseCode) throws SQLException {
         failedProcessBifast(item, responseCode);
     }
 
     public void handleTimeoutCoreProcess(SpanSp2dStageIn item) throws SQLException {
         MainCHK.tulisLog("Processing Core Banking FT Timeout (RC 57) update untuk doc: " + item.getDocumentNumber());
-        updateEsbResponseCode(item, rcForTimeoutCoreProcess);
+        updateBifastResponseCode(item, rcForTimeoutCoreProcess);
     }
 
     public void handleCorePostingFailed(SpanSp2dStageIn item) throws SQLException {
         MainCHK.tulisLog("Processing Core Banking Posting Failed / Error Validasi Core (RC 05) update untuk doc: " + item.getDocumentNumber());
-        updateEsbResponseCode(item, rcForCorePostingFailed);
+        updateBifastResponseCode(item, rcForCorePostingFailed);
     }
 
 

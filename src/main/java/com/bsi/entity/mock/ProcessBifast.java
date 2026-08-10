@@ -479,7 +479,6 @@ public class ProcessBifast {
                         int counterUpdate = mariaDb.getNumRetryStatus(item) + 1;
                         MainCHK.tulisLog("Counter retry check status sekarang: " + counterUpdate);
                         // 2026-08-06
-                        MainCHK.tulisLog("Jumlah"+counterUpdate);
                         if (counterUpdate == 5){
                         CreditTransferResponse ctResponse = new CreditTransferResponse();
                         ctResponse.setResponseCode("000");
@@ -566,9 +565,16 @@ public class ProcessBifast {
             mariaDb.insertPostingCtFailure(item, ctResponse);
             mariaDb.insertReturDatainPostingTable(dataRetur, resp);
             mariaDb.prosesAckRetur(item.getDocumentNumber());
-            if (resp.isSuccess()) {
-                mariaDb.finalizeSuccessRecordsAfterRetyRetur(item);
-            }
+
+            switch (item.getStatus().trim().toUpperCase()) {
+                 case "RRS-000":
+                     mariaDb.finalizeSuccessRecordsAfterRetyRetur(item);
+                     break;
+                 default:
+                     mariaDb.finalizeSuccessRecordsAfterGetStatus(item);
+                     break;
+             }
+            
         } else {
             MainCHK.tulisLog("Gagal retur CT pada Core T24!");
             if (resp == null) {
@@ -618,12 +624,50 @@ public class ProcessBifast {
         return false;
     }
 
-    // [NEW][2026-08-04] GAP 7: Method scheduler untuk memproses ulang data berstatus TMO-000 / RGS-000 (Status Inquiry Retry)
+    // GAP 7: Method scheduler untuk memproses ulang data berstatus RGS-000 (Status Inquiry Retry)
     public void prosesTimeoutCtBifast(List<SpanSp2dStageIn> processData) {
-        MainCHK.tulisLog("[GAP7] Scheduler prosesTimeoutCtBifast dijalankan. Jumlah data: " + processData.size());
+        MainCHK.tulisLog("Scheduler get payment status dijalankan. Jumlah data: " + processData.size());
         if (processData == null || processData.isEmpty()) {
-            MainCHK.tulisLog("[GAP7] Tidak ada data berstatus timeout/retry check status.");
+            MainCHK.tulisLog("Tidak ada data berstatus timeout/retry check status.");
             return;
+        }
+
+        int numThreads = 3;
+        int totalData=processData.size();
+        
+        Queue<SpanSp2dStageIn> taskQueue = new ConcurrentLinkedQueue<>(processData);
+        AtomicInteger processedCount = new AtomicInteger(0);
+
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+
+        for (int i=1; i<=processData.size(); i++){
+            final int thread = i;
+            executor.submit(()->{
+               MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread dimulai (Membuka koneksi MariaDB dedicated)...");
+               ServiceMariaDb threadMariaDb = createMariaDbInstance();
+               try{
+                 SpanSp2dStageIn item;
+                 while((item = taskQueue.poll())!= null){
+                    int count =processedCount.incrementAndGet();
+                    MainCHK.tulisLog("[WORKER-" + thread + "] Memproses document: " + item.getDocumentNumber() + " (" + count + "/" + totalData + ")");
+                    CreditTransferResponse ctResponse  = new CreditTransferResponse();
+                    ctResponse.setResponseCode(item.getReturnCode());
+                    try {
+                     handleCreditTransferTimeout(item, ctResponse, threadMariaDb);
+                    } catch (Exception e){
+                        MainCHK.tulisLog("Error saat pemanggilan awal proses retur" + e.getMessage());
+                    }
+                 }
+                }finally{
+                    try{
+                     threadMariaDb.close();
+                    }catch(Exception e ){
+                     MainCHK.tulisLog("[WORKER-" + thread + "] Error closing DB connection: " + e.getMessage()); 
+                    }
+                }
+                     MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread selesai (Koneksi DB ditutup).");
+            });
+
         }
         ServiceMariaDb threadMariaDb = createMariaDbInstance();
         try {
@@ -639,7 +683,7 @@ public class ProcessBifast {
         }
     }
 
-    // [NEW][2026-08-04] GAP 7: Method scheduler untuk memproses ulang data berstatus RRS-000 (Retry Retur FT T24)
+    //  Method scheduler untuk memproses ulang data berstatus RRS-000 (Retry Retur FT T24)
     public void prosesRetryRetur(List<SpanSp2dStageIn> processData) {
         MainCHK.tulisLog("Scheduler prosesRetryRetur dijalankan. Jumlah data: " + processData.size());
         if (processData == null || processData.isEmpty()) {
@@ -684,8 +728,11 @@ public class ProcessBifast {
             });
         }
         executor.shutdown();
-
-        
+         try {
+            executor.awaitTermination(2, TimeUnit.HOURS);
+        } catch (InterruptedException e) {
+            MainCHK.tulisLog("[MULTI-THREAD] Interrupted saat menunggu worker threads: " + e.getMessage());
+            Thread.currentThread().interrupt();
+        }
     }
 }
-
