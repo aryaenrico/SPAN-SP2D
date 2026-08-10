@@ -195,8 +195,8 @@ public class ProcessBifast {
         MainCHK.tulisLog("Status Ae " + accountInquiryResponse.getResponseCode());
 
         // Case 1 : Ae dan ct sukses
-        //if (accountInquiryResponse.isSuccess() && isAccountValid) {
-        if (true){
+        if (accountInquiryResponse.isSuccess() && isAccountValid) {
+        
             executeCreditTransferFlow(item, mariaDb);
         }
         // case 2 : AE retur 
@@ -275,7 +275,7 @@ public class ProcessBifast {
         boolean failedResponseFromCi = "25".equals(respCode);
 
         // Skenario 1: Timeout BI-FAST Hub (RC 51)
-        if (true) {
+        if (timeoutFromCi) {
             mariaDb.handleResponseTimeoutFromCi(item);
             int numOfRetryStatus = mariaDb.getNumRetryStatus(item);
             if (numOfRetryStatus < 5) {
@@ -323,7 +323,7 @@ public class ProcessBifast {
         FundsTransferSoapResponse resp = ProsesRetur.returProcess(item, debitAccount, creditAccount, transactionType);
 
         if (resp != null && resp.isSuccess()) {
-            MainCHK.tulisLog("Proses Insert data awal ke tabel posting");
+    
             try {
                 mariaDb.insertPostingAeFailure(item, inquiryResponse);
             } catch (SQLException e) {
@@ -350,7 +350,8 @@ public class ProcessBifast {
         } else {
             MainCHK.tulisLog("Gagal retur AE, update status agar diproses scheduler retry");
             try {
-                mariaDb.updateStatusForRetryRetur(item);
+                // hardcode dulu string kosong nya 
+                mariaDb.updateStatusForRetryRetur(item,"SR011");
             } catch (SQLException e) {
                 MainCHK.tulisLog("Error update status retry retur: " + e.getMessage());
             }
@@ -534,7 +535,7 @@ public class ProcessBifast {
     }
 
     private void executeTransactionRetur(SpanSp2dStageIn item, CreditTransferResponse ctResponse, ServiceMariaDb mariaDb) throws SQLException {
-        MainCHK.tulisLog("Proses retur FT");
+        MainCHK.tulisLog("Execute Proses retur menggunakan Service FT");
         String debitAccount = "IDR1717700010001";
         String creditAccount;
         String transactionType = Utillity.getTransactionType(item, mariaDb.getSpanconfig());
@@ -551,11 +552,10 @@ public class ProcessBifast {
                 break;
         }
 
-        MainCHK.tulisLog("Rekening Kredit :" + creditAccount);
         FundsTransferSoapResponse resp = ProsesRetur.returProcess(item, debitAccount, creditAccount, transactionType);
 
         if (resp != null && resp.isSuccess()) {
-            MainCHK.tulisLog("Sukses retur CT pada T24, Transaction ID: " + resp.getTransactionId());
+            MainCHK.tulisLog("Sukses retur pada T24, Transaction ID: " + resp.getTransactionId());
             SpanSp2dStageIn dataRetur = cloneItemForRetur(item);
 
             dataRetur.setBeneficiaryAccount(creditAccount);
@@ -567,37 +567,26 @@ public class ProcessBifast {
             mariaDb.insertReturDatainPostingTable(dataRetur, resp);
             mariaDb.prosesAckRetur(item.getDocumentNumber());
             if (resp.isSuccess()) {
-                mariaDb.finalizeSuccessRecords(item);
+                mariaDb.finalizeSuccessRecordsAfterRetyRetur(item);
             }
         } else {
             MainCHK.tulisLog("Gagal retur CT pada Core T24!");
-
             if (resp == null) {
-                MainCHK.tulisLog("[GAP3] Skenario 18: Retur timeout dari Core Banking (resp == null) untuk doc: " + item.getDocumentNumber());
-                try {
-                    mariaDb.handleTimeoutCoreProcess(item);
-                } catch (SQLException sqlEx) {
-                    MainCHK.tulisLog("Error update timeout core saat retur: " + sqlEx.getMessage());
-                }
-                mariaDb.updateStatusForRetryRetur(item);
-                mariaDb.failedProcessRetur(item, "05");
+                mariaDb.updateStatusForRetryRetur(item ,"SR019");
             } else {
                 MainCHK.tulisLog(resp.toString());
-                String txId = (resp.getTransactionId() != null) ? resp.getTransactionId() : "";
                 if (resp.status != null && resp.status.messages != null && !resp.status.messages.isEmpty()) {
-                    MainCHK.tulisLog("[GAP3] Skenario 17: Retur posting failed dari Core Banking untuk doc: " + item.getDocumentNumber());
-                    SpanSp2dStageIn cloneUpdate = item;
-                    cloneUpdate.setBiFastResponseCode("05");
-                    mariaDb.handleCorePostingFailed(cloneUpdate);
-                    mariaDb.updateStatusForRetryRetur(item);
+                    MainCHK.tulisLog("Retur posting failed dari Core Banking untuk doc: " + item.getDocumentNumber());
+                    MainCHK.tulisLog("Dengan error message" + resp.status.toString());
+                    mariaDb.updateStatusForRetryRetur(item ,"SR011");
                 } else {
-                    MainCHK.tulisLog("[GAP3] Retur gagal tanpa error message (kemungkinan timeout partial) untuk doc: " + item.getDocumentNumber());
+                    MainCHK.tulisLog("Retur gagal tanpa error message (kemungkinan timeout partial) untuk doc: " + item.getDocumentNumber());
                     try {
                         mariaDb.handleTimeoutCoreProcess(item);
                     } catch (SQLException sqlEx) {
                         MainCHK.tulisLog("Error update timeout core saat retur: " + sqlEx.getMessage());
                     }
-                    mariaDb.updateStatusForRetryRetur(item);
+                    mariaDb.updateStatusForRetryRetur(item , "SR019");
                 }
             }
         }
@@ -652,26 +641,51 @@ public class ProcessBifast {
 
     // [NEW][2026-08-04] GAP 7: Method scheduler untuk memproses ulang data berstatus RRS-000 (Retry Retur FT T24)
     public void prosesRetryRetur(List<SpanSp2dStageIn> processData) {
-        MainCHK.tulisLog("[GAP7] Scheduler prosesRetryRetur dijalankan. Jumlah data: " + processData.size());
+        MainCHK.tulisLog("Scheduler prosesRetryRetur dijalankan. Jumlah data: " + processData.size());
         if (processData == null || processData.isEmpty()) {
-            MainCHK.tulisLog("[GAP7] Tidak ada data berstatus retry retur.");
+            MainCHK.tulisLog("Tidak ada data berstatus retry retur.");
             return;
         }
-        ServiceMariaDb threadMariaDb = createMariaDbInstance();
-        try {
-            for (SpanSp2dStageIn item : processData) {
-                MainCHK.tulisLog("[GAP7] Processing Retry Retur FT untuk doc: " + item.getDocumentNumber());
-                CreditTransferResponse dummyResponse = new CreditTransferResponse();
-                dummyResponse.setResponseCode("25");
-                try {
-                    executeTransactionRetur(item, dummyResponse, threadMariaDb);
-                } catch (Exception e) {
-                    MainCHK.tulisLog("[GAP7] Error saat retry retur doc " + item.getDocumentNumber() + ": " + e.getMessage());
+
+        int numThreads = 3;
+        int totalData=processData.size();
+        
+        Queue<SpanSp2dStageIn> taskQueue = new ConcurrentLinkedQueue<>(processData);
+        AtomicInteger processedCount = new AtomicInteger(0);
+
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+
+        for (int i=1 ; i <= numThreads ; i++){
+            final int thread = i;
+            executor.submit(()->{
+              MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread dimulai (Membuka koneksi MariaDB dedicated)...");
+               ServiceMariaDb threadMariaDb = createMariaDbInstance();
+               try{
+                 SpanSp2dStageIn item;
+                 while((item = taskQueue.poll())!= null){
+                    int count =processedCount.incrementAndGet();
+                    MainCHK.tulisLog("[WORKER-" + thread + "] Memproses document: " + item.getDocumentNumber() + " (" + count + "/" + totalData + ")");
+                    CreditTransferResponse ctResponse  = new CreditTransferResponse();
+                    ctResponse.setResponseCode(item.getReturnCode());
+                    try {
+                     executeTransactionRetur(item, ctResponse, threadMariaDb);
+                    } catch (SQLException e){
+                        MainCHK.tulisLog("Error saat pemanggilan awal proses retur" + e.getMessage());
+                    }
+                 }
+                }finally{
+                    try{
+                     threadMariaDb.close();
+                    }catch(Exception e ){
+                     MainCHK.tulisLog("[WORKER-" + thread + "] Error closing DB connection: " + e.getMessage()); 
+                    }
                 }
-            }
-        } finally {
-            try { threadMariaDb.close(); } catch (Exception e) {}
+                     MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread selesai (Koneksi DB ditutup).");
+            });
         }
+        executor.shutdown();
+
+        
     }
 }
 

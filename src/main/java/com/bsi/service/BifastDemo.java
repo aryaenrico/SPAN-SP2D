@@ -18,11 +18,19 @@ public class BifastDemo {
 
     MainCHK.tulisLog("[MULTI-THREAD] Running command prosesTransactionBifast...");
     try {
+        /*
        mariaDb.excludeOutOfBalanceBO2();
        dataBifast = mariaDb.getDataBifast("BO2");
        ProcessBifast processBifast = new ProcessBifast();
        processBifast.paymentBifast(dataBifast, "BO2");
-                    MainCHK.tulisLog("prosesTransactionBifast done..");
+       MainCHK.tulisLog("prosesTransactionBifast done..");
+        */
+
+        MainCHK.tulisLog("Running command proses Retry Retur...");
+        List<SpanSp2dStageIn> dataRrs = mariaDb.getDataBifastForSchedulerPurpose(mariaDb.statusForRetryRetur);
+        ProcessBifast processBifast = new ProcessBifast();
+        processBifast.prosesRetryRetur(dataRrs);
+        MainCHK.tulisLog("proses Retry Retur done..");
     } catch (SQLException E){
 
     }

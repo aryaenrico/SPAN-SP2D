@@ -428,12 +428,20 @@ public class ServiceMariaDb {
     }
 
     public void includeOutOfBalanceBO1() throws SQLException {
-        processIncludeOutOfBalance("ACCT_RPKBUN_NON_GAJI");
+        String accountNumber = processIncludeOutOfBalance("ACCT_RPKBUN_NON_GAJI");
+         executeUpdateStatusForIncludeBalance(accountNumber,statusReadyProses,statusWaitingDropping);
     }
 
     public void includeOutOfBalanceBO2() throws SQLException {
 
-        processIncludeOutOfBalance("ACCT_RPKBUN_NON_GAJI");
+        String accountNumber = processIncludeOutOfBalance("ACCT_RPKBUN_GAJI");
+        executeUpdateStatusForIncludeBalance(accountNumber,statusReadyProses,statusWaitingDropping);
+    }
+
+    public void includeOutOfBalanceBO2Bifast() throws SQLException {
+
+        String accountNumber = processIncludeOutOfBalance("ACCT_RPKBUN_GAJI");
+        executeUpdateStatusForIncludeBalance(accountNumber,statusReadyProsesBifast,statusWaitingDroppingBifast);
     }
     
     public List<SpanSp2dStageIn> getDataBifast(String activities) throws SQLException{
@@ -578,12 +586,11 @@ public class ServiceMariaDb {
         return result;
     }
 
-    // [NEW][2026-07-31] GAP 7: Method untuk query data berdasarkan status tertentu (TMO-000, RGS-000, RRS-000).
-    // Digunakan oleh scheduler command prosesTimeoutCtBifast dan prosesRetryRetur
-    // untuk mengambil data yang perlu di-retry dari tabel span_sp2d_stage_in.
-    public List<SpanSp2dStageIn> getDataBifastByStatus(String targetStatus) throws SQLException {
+    // Method untuk query data berdasarkan status tertentu (RGS-000 , RRS ).
+    // Digunakan oleh scheduler prosesgetstatus
+    public List<SpanSp2dStageIn> getDataBifastForSchedulerPurpose(String targetStatus) throws SQLException {
         List<SpanSp2dStageIn> result = new ArrayList<>();
-        String sql = "SELECT " + "id, applicationareasenderidentifier, applicationareareceiveridentifier, " +
+        String sql = "SELECT id, applicationareasenderidentifier, applicationareareceiveridentifier, " +
                      "applicationareadetailsenderidentifier, applicationareadetailreceiveridentifier, " +
                      "applicationareacreationdatetime, applicationareamessageidentifier, " +
                      "applicationareamessagetypeindicator, applicatioanareamessageversiontext, " +
@@ -602,13 +609,14 @@ public class ServiceMariaDb {
         try(PreparedStatement ps = conn.prepareStatement(sql)){
              ps.setString(1, spanConfig.getAppDate());
              ps.setString(2, targetStatus);
-             MainCHK.tulisLog("[GAP7] Query data bifast by status: " + targetStatus);
+             MainCHK.tulisLog("Query data bifast by status: " + targetStatus);
              MainCHK.tulisLog(ps);
             try(ResultSet rs = ps.executeQuery()){
                 while (rs.next()){
                 int id = rs.getInt("id");
                 String status = rs.getString("status");
                 BigDecimal amount = rs.getBigDecimal("amount");
+                
                 if (amount == null){
                     amount = BigDecimal.ZERO;
                 }
@@ -623,24 +631,24 @@ public class ServiceMariaDb {
                String applicationAreaMessageVersionText =rs.getString("applicatioanareamessageversiontext");
                LocalDate documentDate =rs.getDate("documentdate") != null? rs.getDate("documentdate").toLocalDate(): null;
 
-                String documentNumber =rs.getString("documentnumber");
-                String beneficiaryName =rs.getString("beneficiaryname");
-                String beneficiaryBankCode =rs.getString("beneficiarybankcode");
-                String beneficiaryBank =rs.getString("beneficiarybank");
-                String beneficiaryAccount =rs.getString("beneficiaryaccount");
-                String currencyTarget =rs.getString("currencytarget");
-                String description =rs.getString("description");
-                String agentBankCode =rs.getString("agentbankcode");
-                String agentBankAccountNumber =rs.getString("agentbankaccountnumber");
-                String agentBankAccountName =rs.getString("agentbankaccountname");
-                String emailAddress =rs.getString("emailaddress");
-                String swiftCode =rs.getString("swiftcode");
-                String ibanCode =rs.getString("ibancode");
-                String paymentMethod =rs.getString("paymentmethod");
-                int sp2dCount =rs.getInt("sp2dcount");
-                int totalCount =rs.getInt("totalcount");
-                BigDecimal totalAmount =rs.getBigDecimal("totalamount");
-                Integer totalBatchCount =rs.getInt("totalbatchcount");
+               String documentNumber =rs.getString("documentnumber");
+               String beneficiaryName =rs.getString("beneficiaryname");
+               String beneficiaryBankCode =rs.getString("beneficiarybankcode");
+               String beneficiaryBank =rs.getString("beneficiarybank");
+               String beneficiaryAccount =rs.getString("beneficiaryaccount");
+               String currencyTarget =rs.getString("currencytarget");
+               String description =rs.getString("description");
+               String agentBankCode =rs.getString("agentbankcode");
+               String agentBankAccountNumber =rs.getString("agentbankaccountnumber");
+               String agentBankAccountName =rs.getString("agentbankaccountname");
+               String emailAddress =rs.getString("emailaddress");
+               String swiftCode =rs.getString("swiftcode");
+               String ibanCode =rs.getString("ibancode");
+               String paymentMethod =rs.getString("paymentmethod");
+               int sp2dCount =rs.getInt("sp2dcount");
+               int totalCount =rs.getInt("totalcount");
+               BigDecimal totalAmount =rs.getBigDecimal("totalamount");
+               Integer totalBatchCount =rs.getInt("totalbatchcount");
                String sp2dNumber =rs.getString("sp2d_number");
                LocalDate datePosting =rs.getDate("date_posting") != null? rs.getDate("date_posting").toLocalDate(): null;
                String referenceNumber =rs.getString("reference_number");
@@ -761,7 +769,7 @@ public class ServiceMariaDb {
 
         SpanSp2dPosting rec = constructDataForposting(stageIn, ack, response.getResponseCode());       
         rec.referenceNumber ="dummy ft yang sudah terbuku di core";
-          insertPostingRecords(rec);
+        insertPostingRecords(rec);
     }
    
     public void insertPostingRecords(SpanSp2dPosting r) throws SQLException {
@@ -850,13 +858,22 @@ public class ServiceMariaDb {
        try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
             ps.setString(2,statusReadyPosting);
-            ps.setString(3, statusForRetryGetstatus );
-            ps.setString(4, statusTimeoutCreditTransferBifast);
-            ps.setString(5,stagein.getDocumentNumber());
+            ps.setString(3,stagein.getDocumentNumber());
             int updated = ps.executeUpdate();
         System.out.println("Finalized " + updated + " record(s): PST-000 → FIN-000");
     }
-} 
+  } 
+
+    public void finalizeSuccessRecordsAfterRetyRetur(SpanSp2dStageIn stagein) throws SQLException {
+       String sql = Utillity.finalizeSuccesRecord(spanConfig.getAcctRpkbunGaji(),spanConfig.getAcctRrRpkbunGaji());
+       try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
+            ps.setString(2, statusForRetryRetur);
+            ps.setString(3,stagein.getDocumentNumber());
+            int updated = ps.executeUpdate();
+        System.out.println("Finalized " + updated + " record(s): RRS-000 → FIN-000");
+    }
+  } 
     
     public void failedProcessBifast(SpanSp2dStageIn item,String responseCode) throws SQLException{
         String sql = "UPDATE span_sp2d_stage_in " +
@@ -892,8 +909,6 @@ public class ServiceMariaDb {
     }
 
 
-
-
     public void updateEsbResponseCode(SpanSp2dStageIn item, String responseCode) throws SQLException {
         failedProcessBifast(item, responseCode);
     }
@@ -911,12 +926,8 @@ public class ServiceMariaDb {
 
      // 2026-08-06
     public void handleResponseTimeoutFromCi(SpanSp2dStageIn item) throws SQLException{
-       
-        MainCHK.tulisLog("Sebelum Eror");
         Map<String,BifastRcMapping> map = Utillity.fetchBifastRcMappingCt(conn);
-        
         String rcBifast = map != null ? Utillity.safe(map.get(rcForTimeoutCtProcess).span_rc) : "";
-      
         String sql ="UPDATE span_sp2d_stage_in " +
                     "SET status = ? , bifast_response_code = ? "+
                     "WHERE documentnumber = ? " +
@@ -1250,10 +1261,15 @@ public class ServiceMariaDb {
         }
     }
 
-   public void updateStatusForRetryRetur(SpanSp2dStageIn rec) throws SQLException{
+   public void updateStatusForRetryRetur(SpanSp2dStageIn rec , String mappingRc) throws SQLException{
         String sql =Utillity.updateStatusForRetryRetur("span_sp2d_stage_in");
-        executUpdateForRetryRetur(sql,statusForRetryRetur,rcForFailedProcess,spanConfig.getAppDate(),statusReadyPosting,rec.getDocumentNumber());
+        Map<String, BifastRcMapping> map = Utillity.fetchBifastRcMappingRetur(conn); 
+
+        String rcBifast = map != null ? Utillity.safe(map.get(mappingRc).bifast_rc)  : "";        
+        executUpdateForRetryRetur(sql,statusForRetryRetur,mappingRc,rcBifast,rec.getDocumentNumber());
     }
+
+   
  
    public void insertReturDatainPostingTable(SpanSp2dStageIn stageIn, FundsTransferSoapResponse response) throws SQLException{
     try{
@@ -1395,14 +1411,16 @@ public class ServiceMariaDb {
     }
 }
 
-    private void executUpdateForRetryRetur(String sql, String targetStatus, String returnCODE, String appDate,String currentStatus,String documentNumber) throws SQLException {
+    private void executUpdateForRetryRetur(String sql, String targetStatus, String rcSpan, String returnCode,String documentNumber) throws SQLException {
     try (PreparedStatement psUpdate = conn.prepareStatement(sql)) {
-            ps.setString(1, targetStatus);
-            // hardcode first ,tobe mapping with esb response code
-            ps.setString(2, returnCODE);
-            ps.setString(3, appDate);
-            ps.setString(4, currentStatus);
-            ps.setString(5, documentNumber);
+            psUpdate.setString(1, targetStatus);
+            psUpdate.setString(2, rcSpan);
+            psUpdate.setString(3, returnCode);
+            psUpdate.setString(4, spanConfig.getAppDate());
+            psUpdate.setString(5, statusForRetryRetur);
+            psUpdate.setString(6, statusReadyPosting);
+            psUpdate.setString(7, documentNumber);
+            MainCHK.tulisLog(psUpdate);
             int rows = psUpdate.executeUpdate();
             if (rows > 0) {
             MainCHK.tulisLog("Update status [" + targetStatus + "] rows => " + rows);
@@ -1410,41 +1428,39 @@ public class ServiceMariaDb {
     }
 }
 
-   private void processIncludeOutOfBalance(String configAccountKey) throws SQLException {
-    String accountNumber = null;
-    String sqlSaldo = Utillity.generateSqlSaldo();
+   private String processIncludeOutOfBalance(String configAccountKey) throws SQLException {
+     String accountNumber = null;
+     String sqlSaldo = Utillity.generateSqlSaldo();
 
-    try (PreparedStatement qSelectSaldo = conn.prepareStatement(sqlSaldo)) {
-        qSelectSaldo.setString(1, configAccountKey);
-        MainCHK.tulisLog(qSelectSaldo.toString());
-        try (ResultSet rsSaldo = qSelectSaldo.executeQuery()) {
-            if (rsSaldo.next()) {
-                accountNumber = rsSaldo.getString("account_number");
-                if ("ACCT_RPKBUN_GAJI".equals(configAccountKey)) {
-                    ACCT_RPKBUN_GAJI = accountNumber;
-                } else {
-                    ACCT_RPKBUN_NON_GAJI = accountNumber;
-                }
-            } else {
-                MainCHK.tulisLog("Rekening " + configAccountKey + " tidak ditemukan!");
-                return;
-            }
-        }
-    }
+      try (PreparedStatement qSelectSaldo = conn.prepareStatement(sqlSaldo)) {
+          qSelectSaldo.setString(1, configAccountKey);
+          MainCHK.tulisLog(qSelectSaldo.toString());
+          try (ResultSet rsSaldo = qSelectSaldo.executeQuery()) {
+              if (rsSaldo.next()) {
+                  accountNumber = rsSaldo.getString("account_number");
+                  if ("ACCT_RPKBUN_GAJI".equals(configAccountKey)) {
+                      ACCT_RPKBUN_GAJI = accountNumber;
+                  } else {
+                      ACCT_RPKBUN_NON_GAJI = accountNumber;
+                  }
+              } else {
+                  MainCHK.tulisLog("Rekening " + configAccountKey + " tidak ditemukan!");
+    
+              }
+          }
+   }
+    return accountNumber;
+ }
 
-    try (PreparedStatement qUpdate = conn.prepareStatement(Utillity.updateStatusForInclude())) {
-        qUpdate.setString(1, statusReadyProses);
+    private void executeUpdateStatusForIncludeBalance (String accountNumber ,String targetStatus, String currentStatus) throws  SQLException{
+      try (PreparedStatement qUpdate = conn.prepareStatement(Utillity.updateStatusForInclude())) {
+        qUpdate.setString(1, targetStatus);
         qUpdate.setString(2, accountNumber);
-        qUpdate.setString(3, statusWaitingDropping);
+        qUpdate.setString(3, currentStatus);
         qUpdate.executeUpdate();
-        MainCHK.tulisLog(qUpdate.toString());
-    }
+     }
+   }
 
-    try (PreparedStatement updateStatusBifast = conn.prepareStatement(Utillity.updateStatusForInclude())) {
-        updateStatusBifast.setString(1, flaggingBifast);
-        updateStatusBifast.setString(2, accountNumber);
-        updateStatusBifast.setString(3, statusWaitingDroppingBifast);
-        updateStatusBifast.executeUpdate();
-    }
-}
+
+
 }

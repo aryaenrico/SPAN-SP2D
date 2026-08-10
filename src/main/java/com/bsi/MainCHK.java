@@ -143,11 +143,11 @@ public class MainCHK {
                     e.printStackTrace(System.out);
                 }
                 break;
-            // [NEW][2026-08-03] GAP 7: Scheduler command untuk memproses ulang check status BI-FAST (RGS-000)
+            // Scheduler command untuk memproses ulang check status BI-FAST (RGS-000)
             case "prosesRetryGetstatus":
                 try {
-                    tulisLog("[GAP7] Running command prosesRetryGetstatus...");
-                    List<SpanSp2dStageIn> dataRgs = serviceMariaDb.getDataBifastByStatus(serviceMariaDb.statusForRetryGetstatus);
+                    tulisLog("Running scheduler prosesRetryGetstatus...");
+                    List<SpanSp2dStageIn> dataRgs = serviceMariaDb.getDataBifastForSchedulerPurpose(serviceMariaDb.statusForRetryGetstatus);
                     ProcessBifast processBifast = new ProcessBifast();
                     processBifast.prosesTimeoutCtBifast(dataRgs);
                     tulisLog("prosesRetryGetstatus done..");
@@ -156,11 +156,11 @@ public class MainCHK {
                     e.printStackTrace(System.out);
                 }
                 break;
-            // [NEW][2026-08-03] GAP 7: Scheduler command untuk memproses ulang Retur T24 yang gagal/timeout (RRS-000)
+            // Scheduler command untuk memproses ulang Retur T24 yang gagal
             case "prosesRetryRetur":
                 try {
-                    tulisLog("[GAP7] Running command prosesRetryRetur...");
-                    List<SpanSp2dStageIn> dataRrs = serviceMariaDb.getDataBifastByStatus(serviceMariaDb.statusForRetryRetur);
+                    tulisLog("Running command prosesRetryRetur...");
+                    List<SpanSp2dStageIn> dataRrs = serviceMariaDb.getDataBifastForSchedulerPurpose(serviceMariaDb.statusForRetryRetur);
                     ProcessBifast processBifast = new ProcessBifast();
                     processBifast.prosesRetryRetur(dataRrs);
                     tulisLog("prosesRetryRetur done..");

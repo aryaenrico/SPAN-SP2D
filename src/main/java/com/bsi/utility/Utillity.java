@@ -146,7 +146,7 @@ public class Utillity {
         return map;
     }
 
-    public static Map<String, BifastRcMapping> fetchBifastRcMappingCt(Connection conn) throws SQLException {
+  public static Map<String, BifastRcMapping> fetchBifastRcMappingCt(Connection conn) throws SQLException {
         String sql = "SELECT id, service_type, bifast_rc, bifast_description,span_rc , description_state from bifast_response_mapping " +
                      "WHERE service_type = 'CREDIT_TRANSFER' ";
         Map<String, BifastRcMapping> map = new HashMap<>();
@@ -171,6 +171,55 @@ public class Utillity {
         return map;
     }
 
+   
+   public static Map<String, BifastRcMapping> fetchBifastRcMappingAll(Connection conn) throws SQLException {
+        String sql = "SELECT id, service_type, bifast_rc, bifast_description,span_rc , description_state from bifast_response_mapping";
+        Map<String, BifastRcMapping> map = new HashMap<>();
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                BifastRcMapping rc         = new BifastRcMapping();
+                rc.id                      = rs.getLong("id");
+                rc.service_type            = rs.getString("service_type");
+                rc.bifast_rc               = rs.getString("bifast_rc");
+                rc.bifast_description      = rs.getString("bifast_description");
+                rc.span_rc                 = rs.getString("span_rc");
+                rc.description_state       = rs.getString("description_state");
+
+                String key = rc.span_rc;
+                map.put(key, rc);
+            }
+        }
+        return map;
+    }
+   
+
+    public static Map<String, BifastRcMapping> fetchBifastRcMappingRetur(Connection conn) throws SQLException {
+        String sql = "SELECT id, service_type, bifast_rc, bifast_description,span_rc , description_state from bifast_response_mapping " +
+                     "WHERE service_type = 'RETUR_T24' ";
+        Map<String, BifastRcMapping> map = new HashMap<>();
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                BifastRcMapping rc = new BifastRcMapping();
+                rc.id          = rs.getLong("id");
+                rc.service_type        = rs.getString("service_type");
+                rc.bifast_rc = rs.getString("bifast_rc");
+                rc.bifast_description      = rs.getString("bifast_description");
+                rc.span_rc = rs.getString("span_rc");
+                rc.description_state =rs.getString("description_state");
+
+                String key = rc.span_rc;
+                while (map.containsKey(key)) {
+                    key = key + "U";
+                }
+                map.put(key, rc);
+            }
+        }
+        return map;
+    }
+   
+   
    public static String safe(String s) { return s != null ? s : ""; }
 
    public static Map<String,PaymentMethod> fetchPaymentMethod (Connection conn) throws SQLException{
@@ -269,7 +318,7 @@ public class Utillity {
             " AND paymentmethod ='5' "; 
    }
 
-     public static String updateFlagAckReturProses(String nameTable){
+   public static String updateFlagAckReturProses(String nameTable){
       String tablename  ="";
 
       switch (nameTable) {
@@ -285,7 +334,7 @@ public class Utillity {
             " AND paymentmethod ='5' "; 
      }
 
-     public static String updateSp2dStageIn(int paramCount ){
+   public static String updateSp2dStageIn(int paramCount ){
         StringBuilder sb = new StringBuilder();  
         for (int i = 0; i < paramCount; i++) {
             sb.append(i == 0 ? "?" : ",?");
@@ -298,7 +347,7 @@ public class Utillity {
                      "AND agentbankaccountnumber IN ("+sb.toString()+") ";
      }
 
-     public static String updateStatusForRetryRetur(String nameTable){
+   public static String updateStatusForRetryRetur(String nameTable){
         String tablename  ="";
         switch (nameTable) {
              case "span_sp2d_stage_in":
@@ -307,19 +356,20 @@ public class Utillity {
            default:
               tablename = "span_sp2d_posting";
       }
-        return "UPDATE " + tablename + " SET status = ?  , esb_response_code = ? " +
+        return "UPDATE " + tablename + " SET status = ? , bifast_response_code = ? ," +
+                "return_code = ? " +
                 "WHERE documentdate = ? " +
-                "AND status = ? " +
+                "AND status = ? OR status = ? " +
                 "AND documentnumber = ? ";
      }
 
-     public static String getTransactionType(SpanSp2dStageIn spanSp2dStageIn , SpanConfig config){
+   public static String getTransactionType(SpanSp2dStageIn spanSp2dStageIn , SpanConfig config){
          String debitAccount = spanSp2dStageIn.getAgentBankAccountNumber();
          String result="";
          if (safe(debitAccount).equals(config.getAcctRpkbunGaji())){
-             result = "B02";
+             result = "BO2";
          } else if (safe(debitAccount).equals(config.getAcctRpkbunNonGaji())){
-             result = "B01";
+             result = "BO1";
          } else {
              result = "REKSUS";
          }
@@ -328,11 +378,10 @@ public class Utillity {
 
    public static String finalizeSuccesRecord(String sourceAccount , String sourceRetur ){
     
-    return  "UPDATE span_sp2d_stage_in SET date_posting = ?, status = 'FIN-000' " +
-                 "WHERE status = ?  OR status = ?   OR status = ? "  +
+      return  "UPDATE span_sp2d_stage_in SET date_posting = ?, status = 'FIN-000' " +
+                 "WHERE status = ? " +
                  "AND agentbankaccountnumber IN ('" + sourceAccount + "','" + sourceRetur + "') " + 
                  "AND paymentmethod = '5' " +
-                 "AND documentnumber = ? "
-                  ;
+                 "AND documentnumber = ? ";
    }  
 }
