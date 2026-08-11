@@ -1,28 +1,19 @@
 package com.bsi.service;
 
 import com.bsi.MainCHK;
-import com.bsi.config.BifastConfig;
 import com.bsi.config.SpanConfig;
-import com.bsi.config.T24Config;
 import com.bsi.entity.PostingRequest;
-import com.bsi.entity.api.ApiClientException;
-import com.bsi.entity.bifast.accountinquiry.AccountInquiryRequest;
 import com.bsi.entity.bifast.accountinquiry.AccountInquiryResponse;
-import com.bsi.entity.bifast.credittransfer.CreditTransferRequest;
 import com.bsi.entity.bifast.credittransfer.CreditTransferResponse;
 import com.bsi.entity.mock.SpanSp2dStageIn;
 import com.bsi.entity.span.BifastRcMapping;
 import com.bsi.entity.span.GenerateAckOut;
 import com.bsi.entity.span.ReturnStatusAck;
 import com.bsi.entity.span.SpanSp2dPosting;
-import com.bsi.entity.t24.FundsTransferSoapRequest;
 import com.bsi.entity.t24.FundsTransferSoapResponse;
-import com.bsi.utility.RequestIdGenerator;
 import com.bsi.utility.Utillity;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-
-import javax.swing.text.Utilities;
 import javax.ws.rs.core.Response;
 import java.io.File;
 import java.io.IOException;
@@ -75,6 +66,8 @@ public class ServiceMariaDb {
     public final String statusForRetryRetur ="RRS-000";
     public final String statusTimeoutCreditTransferBifast = "TMO-000";
     public final String statusTimeoutCreditTransferCore = "TMO-001";
+    public final String statusForManualRetur = "RMR-000";
+    public final String statusForApprovedValidationName ="AVN-000";
 
 
     //esb response code
@@ -875,6 +868,17 @@ public class ServiceMariaDb {
     }
   } 
 
+      public void finalizeSuccessRecordsAfterReturManual(SpanSp2dStageIn stagein) throws SQLException {
+       String sql = Utillity.finalizeSuccesRecord(spanConfig.getAcctRpkbunGaji(),spanConfig.getAcctRrRpkbunGaji());
+       try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
+            ps.setString(2, statusForManualRetur);
+            ps.setString(3,stagein.getDocumentNumber());
+            int updated = ps.executeUpdate();
+        System.out.println("Finalized " + updated + " record(s): RRM-000 → FIN-000");
+    }
+  } 
+
    public void finalizeSuccessRecordsAfterGetStatus(SpanSp2dStageIn stagein) throws SQLException {
        String sql = Utillity.finalizeSuccesRecord(spanConfig.getAcctRpkbunGaji(),spanConfig.getAcctRrRpkbunGaji());
        try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -975,10 +979,11 @@ public class ServiceMariaDb {
         try(PreparedStatement ps = conn.prepareStatement(sql)){
             ps.setString(1, statusReadyPosting);
             ps.setString(2, spanConfig.getAppDate());
-            ps.setString(3,statusReadyProsesBifast);
-            ps.setString(4, item.getDocumentNumber());
-            ps.setString(5, sourceAccount);
-            ps.setString(6, sourceRetur);
+            ps.setString(3, statusReadyProsesBifast);
+            ps.setString(4, statusForApprovedValidationName);
+            ps.setString(5, item.getDocumentNumber());
+            ps.setString(6, sourceAccount);
+            ps.setString(7, sourceRetur);
             MainCHK.tulisLog(ps);
             int rowUpdate = ps.executeUpdate();
             if (rowUpdate == 0){
@@ -989,11 +994,11 @@ public class ServiceMariaDb {
         }
     }
 
-    public void updateSp2dstageinAEerror(SpanSp2dStageIn item) throws SQLException{
+    public void updateSp2dstageinAEerror(SpanSp2dStageIn item, String mappingRc ,String returnCode) throws SQLException{
         String sourceAccount = spanConfig.getAcctRpkbunGaji();
         String sourceRetur =   spanConfig.getAcctRrRpkbunGaji();
-        String sql = "UPDATE span_sp2d_stage_in SET status = ?" +
-                     "WHERE documentdate = ? " +
+        String sql = "UPDATE span_sp2d_stage_in SET status = ? , bifast_response_code = ? , " +
+                     "return_code = ? WHERE documentdate = ? " +
                      "AND status = ? " +
                      "AND agentbankaccountnumber IN ('" + sourceAccount + "','" + sourceRetur + "') "+
                      "AND paymentmethod ='5' "+
@@ -1001,9 +1006,11 @@ public class ServiceMariaDb {
 
         try(PreparedStatement ps = conn.prepareStatement(sql)){
             ps.setString(1, statusPosted);
-            ps.setString(2, spanConfig.getAppDate());
-            ps.setString(3,statusReadyPosting);
-            ps.setString(4, item.getDocumentNumber());
+            ps.setString(2, mappingRc );
+            ps.setString(3, returnCode);
+            ps.setString(4, spanConfig.getAppDate());
+            ps.setString(5,statusReadyPosting);
+            ps.setString(6, item.getDocumentNumber());
 
             int rowUpdate = ps.executeUpdate();
             if (rowUpdate == 0){

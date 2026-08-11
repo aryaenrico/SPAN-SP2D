@@ -7,7 +7,6 @@ import java.sql.SQLException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-
 import com.bsi.config.SpanConfig;
 import com.bsi.entity.span.BifastRcMapping;
 import com.bsi.entity.span.ReturnStatusAck;
@@ -341,7 +340,7 @@ public class Utillity {
         }
        return "UPDATE span_sp2d_stage_in SET status = ? " +
                      "WHERE documentdate = ? " +
-                     "AND status = ? " +
+                     "AND status = ? OR status = ? " +
                      "AND paymentmethod ='5' " +
                      "AND documentnumber = ? " + 
                      "AND agentbankaccountnumber IN ("+sb.toString()+") ";

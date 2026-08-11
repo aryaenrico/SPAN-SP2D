@@ -55,6 +55,8 @@ public class ProcessBifast {
         return new ServiceMariaDb(pathProp, propName);
     }
 
+    Map<String, BifastRcMapping> map =createMariaDbInstance().getBifastMappingRcAe();
+
     // [NEW][2026-08-04] Multi-Threading dengan 3 Dedicated Worker Threads & 3 Instance ServiceMariaDb Terpisah.
     // Menggantikan pemblokiran 'synchronized' pada layer DB sehingga setiap worker thread memiliki koneksi MariaDB
     // independen sendiri. Eksekusi HTTP REST/SOAP dan DB I/O kini berjalan 100% paralel secara optimal.
@@ -172,7 +174,6 @@ public class ProcessBifast {
         String mappingRcSpan = "";
 
         if (accountInquiryResponse.getResponseCode().equals("25")) {
-            MainCHK.tulisLog("HADUHHHH");
             accountNoutFound = isRc25ForAccountnotFound(Utillity.safe(accountInquiryResponse.getResponseMessage()));
             
             if (!accountNoutFound) {
@@ -247,7 +248,7 @@ public class ProcessBifast {
             }
 
             if (ctResponse == null) {
-                MainCHK.tulisLog("[GAP6] ctResponse null setelah call CT untuk doc: " + item.getDocumentNumber());
+                MainCHK.tulisLog("ctResponse null setelah call CT untuk doc: " + item.getDocumentNumber());
                 return;
             }
 
@@ -336,13 +337,18 @@ public class ProcessBifast {
                 dataRetur.setAgentBankAccountNumber(debitAccount);
                 dataRetur.setAgentBankAccountName(agentBankAccountName);
 
-                // Fetch mapping awal menggunakan koneksi sementara
-                 ;
-                String mappingRcSpan = getMappingRc25(mariaDb.getBifastMappingRcAe());
+                String rcSpan = map.get(inquiryResponse.getResponseCode()).bifast_rc;
 
-                mariaDb.updateEsbResponseCode(item, mappingRcSpan);
+                if (inquiryResponse.getResponseCode().equals("25")){
+                    rcSpan =getMappingRc25(map);
+                 }
+
+                 MainCHK.tulisLog("Rc : "+rcSpan);
+                 
+    
                 mariaDb.insertReturDatainPostingTable(dataRetur, resp);
-                mariaDb.updateSp2dstageinAEerror(item);
+            
+                mariaDb.updateSp2dstageinAEerror(item , rcSpan , inquiryResponse.getResponseCode());
                 mariaDb.prosesAckRetur(item.getDocumentNumber());
             } catch (Exception e) {
                 MainCHK.tulisLog("Error insert data retur AE pada tabel posting: " + e.getMessage());
@@ -569,7 +575,10 @@ public class ProcessBifast {
             switch (item.getStatus().trim().toUpperCase()) {
                  case "RRS-000":
                      mariaDb.finalizeSuccessRecordsAfterRetyRetur(item);
-                     break;
+                     break; 
+                case "RMR-000":
+                     mariaDb.finalizeSuccessRecordsAfterReturManual(item);
+                     break;   
                  default:
                      mariaDb.finalizeSuccessRecordsAfterGetStatus(item);
                      break;
@@ -686,6 +695,59 @@ public class ProcessBifast {
     //  Method scheduler untuk memproses ulang data berstatus RRS-000 (Retry Retur FT T24)
     public void prosesRetryRetur(List<SpanSp2dStageIn> processData) {
         MainCHK.tulisLog("Scheduler prosesRetryRetur dijalankan. Jumlah data: " + processData.size());
+        if (processData == null || processData.isEmpty()) {
+            MainCHK.tulisLog("Tidak ada data berstatus retry retur.");
+            return;
+        }
+
+        int numThreads = 3;
+        int totalData=processData.size();
+        
+        Queue<SpanSp2dStageIn> taskQueue = new ConcurrentLinkedQueue<>(processData);
+        AtomicInteger processedCount = new AtomicInteger(0);
+
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+
+        for (int i=1 ; i <= numThreads ; i++){
+            final int thread = i;
+            executor.submit(()->{
+              MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread dimulai (Membuka koneksi MariaDB dedicated)...");
+               ServiceMariaDb threadMariaDb = createMariaDbInstance();
+               try{
+                 SpanSp2dStageIn item;
+                 while((item = taskQueue.poll())!= null){
+                    int count =processedCount.incrementAndGet();
+                    MainCHK.tulisLog("[WORKER-" + thread + "] Memproses document: " + item.getDocumentNumber() + " (" + count + "/" + totalData + ")");
+                    CreditTransferResponse ctResponse  = new CreditTransferResponse();
+                    ctResponse.setResponseCode(item.getReturnCode());
+                    try {
+                     executeTransactionRetur(item, ctResponse, threadMariaDb);
+                    } catch (SQLException e){
+                        MainCHK.tulisLog("Error saat pemanggilan awal proses retur" + e.getMessage());
+                    }
+                 }
+                }finally{
+                    try{
+                     threadMariaDb.close();
+                    }catch(Exception e ){
+                     MainCHK.tulisLog("[WORKER-" + thread + "] Error closing DB connection: " + e.getMessage()); 
+                    }
+                }
+                     MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread selesai (Koneksi DB ditutup).");
+            });
+        }
+        executor.shutdown();
+         try {
+            executor.awaitTermination(2, TimeUnit.HOURS);
+        } catch (InterruptedException e) {
+            MainCHK.tulisLog("[MULTI-THREAD] Interrupted saat menunggu worker threads: " + e.getMessage());
+            Thread.currentThread().interrupt();
+        }
+    }
+
+
+    public void prosesRetur(List<SpanSp2dStageIn> processData) {
+        MainCHK.tulisLog("Scheduler proses Retur dijalankan. Jumlah data: " + processData.size());
         if (processData == null || processData.isEmpty()) {
             MainCHK.tulisLog("Tidak ada data berstatus retry retur.");
             return;

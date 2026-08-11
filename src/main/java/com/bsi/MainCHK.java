@@ -134,7 +134,7 @@ public class MainCHK {
             case "prosesTimeoutCtBifast":
                 try {
                     tulisLog("[GAP7] Running command prosesTimeoutCtBifast...");
-                    List<SpanSp2dStageIn> dataTmo = serviceMariaDb.getDataBifastByStatus(serviceMariaDb.statusTimeoutCreditTransferBifast);
+                    List<SpanSp2dStageIn> dataTmo = serviceMariaDb.getDataBifastForSchedulerPurpose(serviceMariaDb.statusTimeoutCreditTransferBifast);
                     ProcessBifast processBifast = new ProcessBifast();
                     processBifast.prosesTimeoutCtBifast(dataTmo);
                     tulisLog("prosesTimeoutCtBifast done..");
@@ -169,6 +169,33 @@ public class MainCHK {
                     e.printStackTrace(System.out);
                 }
                 break;
+
+            // Scheduler command untuk memproses retur manual
+            case "prosesRetur":
+                try {
+                    tulisLog("Running command proses retur ...");
+                    List<SpanSp2dStageIn> dataRrs = serviceMariaDb.getDataBifastForSchedulerPurpose(serviceMariaDb.statusForManualRetur);
+                    ProcessBifast processBifast = new ProcessBifast();
+                    processBifast.prosesRetur(dataRrs);
+                    tulisLog("proses Retur done..");
+                } catch (Throwable e) {
+                    tulisLog("Throwable :" + e.getMessage());
+                    e.printStackTrace(System.out);
+                }
+                break;
+
+            case "prosesPendingValidationName":
+                try {
+                    tulisLog("Running command proses transaksi pending validasi nama ...");
+                    List<SpanSp2dStageIn> dataProcess = serviceMariaDb.getDataBifastForSchedulerPurpose(serviceMariaDb.statusForApprovedValidationName);
+                    ProcessBifast processBifast = new ProcessBifast();
+                    processBifast.paymentBifast(dataProcess, "BO2");
+                    tulisLog("proses transaksi  done..");
+                } catch (Throwable e) {
+                    tulisLog("Throwable :" + e.getMessage());
+                    e.printStackTrace(System.out);
+                }
+                break;    
             case "chkDS":
                 //chkDS(propPath + propName + ".properties", args[4] + "");
                 break;
