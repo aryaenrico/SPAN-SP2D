@@ -18,6 +18,8 @@ public class T24Config {
     private String password;
     private String company;
     
+    // [FIX][2026-08-13] Header Content-Type dinamis sesuai spesifikasi ESB BSI (Default: soap/xml; charset=UTF-8)
+    private String contentType = "soap/xml; charset=UTF-8";
 
     private int connectTimeoutMs = 10_000;
     private int readTimeoutMs = 60_000;
@@ -63,6 +65,9 @@ public static T24Config fromProperties(Properties props) {
     String soapAction = props.getProperty("t24.soapAction");
     if (soapAction != null) cfg.setSoapAction(soapAction);
 
+    String contentType = props.getProperty("t24.contentType");
+    if (contentType != null) cfg.setContentType(contentType);
+
     cfg.setUserName(trimToNull(props.getProperty("t24.userName")));
     cfg.setPassword(trimToNull(props.getProperty("t24.password")));
     cfg.setCompany(trimToNull(props.getProperty("t24.company")));
@@ -88,6 +93,9 @@ public static T24Config fromProperties(Properties props) {
 
     public String getSoapAction() { return soapAction; }
     public void setSoapAction(String soapAction) { this.soapAction = soapAction; }
+
+    public String getContentType() { return contentType; }
+    public void setContentType(String contentType) { this.contentType = contentType; }
 
     public String getUserName() { return userName; }
     public void setUserName(String userName) { this.userName = userName; }

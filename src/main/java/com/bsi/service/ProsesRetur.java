@@ -33,16 +33,14 @@ public class ProsesRetur {
  
         ft.creditAccount = creditAcct;
         ft.creditCurrency = ft.debitCurrency;
-        ft.creditAmount = "";
-        ft.creditValueDate = "";
-        ft.prosesdate = "";
+        ft.creditAmount = null;
+        ft.creditValueDate = null;
+        ft.prosesdate = null;
  
         ft.gPaymentDetails.paymentDetails.add("RETUR SP2D " + item.getDocumentNumber());
-        ft.rekeningBiaya = "";
-        ft.kodeBiaya = "";
-        ft.gCommissionType.mCommissionType.add(
-                new FundsTransferSoapRequest.MCommissionType("", "")
-        );
+        ft.rekeningBiaya = null;
+        ft.kodeBiaya = null;
+        ft.gCommissionType = null;
         ft.profitCentreDept = "200";
         ft.msgId = RequestIdGenerator.generateRequestID();
  

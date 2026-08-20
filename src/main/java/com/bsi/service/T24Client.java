@@ -106,8 +106,10 @@ public class T24Client {
             conn.setConnectTimeout(config.getConnectTimeoutMs());
             conn.setReadTimeout(config.getReadTimeoutMs());
             conn.setDoOutput(true);
-            conn.setRequestProperty("Content-Type", "soap/xml; charset=UTF-8");
-            conn.setRequestProperty("x-Gateway-APIKey", config.getApikey());
+            // [FIX][2026-08-13] Header Content-Type dinamis sesuai spesifikasi Tim ESB BSI (Default: soap/xml; charset=UTF-8)
+            //String contentType = config.getContentType() != null ? config.getContentType() : "soap/xml; charset=UTF-8";
+            conn.setRequestProperty("Content-Type", "text/xml; charset=UTF-8");
+            conn.setRequestProperty("x-Gateway-APIKey", config.getApikey() != null ? config.getApikey() : "");
             conn.setRequestProperty("SOAPAction",
             config.getSoapAction() != null ? "\"" + config.getSoapAction() + "\"" : "\"\"");
 

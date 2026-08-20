@@ -101,6 +101,10 @@ public class ServiceMariaDb {
             conn.setAutoCommit(true);
             MainCHK.tulisLog("DB Connected:" + url);
             spanConfig = Utillity.loadApplicationConfig(conn);
+            spanConfig.setPathBo2spanHome(rb.getString("path_bo2span_home").trim());
+            spanConfig.setPathBo2spanConfig(rb.getString("path_bo2span_config").trim());
+            spanConfig.setPathSpanAcknowledgePut(rb.getString("path_bo2span_span_acknowledge_put").trim());
+            spanConfig.setPathSpanAcknowledgeArchive(rb.getString("path_bo2span_span_acknowledge_archive"));
 
             String baseurl_api_magic = rb.getString("baseurl_api_magic").trim();
             String clientId = rb.getString("magic_clientId").trim();
@@ -438,20 +442,26 @@ public class ServiceMariaDb {
     }
     
     public List<SpanSp2dStageIn> getDataBifast(String activities) throws SQLException{
-        boolean checkActivites = activities.equals("BO2");
+
         // default use account non gaji 
          String sourceAccount="";
          String sourceRetur="";
-         MainCHK.tulisLog(checkActivites);
-        if (checkActivites){
-           sourceAccount = spanConfig.getAcctRpkbunGaji();
-           sourceRetur =   spanConfig.getAcctRrRpkbunGaji();
-        } else {
-            sourceAccount=spanConfig.getAcctRpkbunNonGaji();
-            sourceRetur=spanConfig.getAcctRrRpkbunNonGaji();
+
+        switch (activities.trim().toUpperCase()) {
+            case "BO2":
+                sourceAccount = spanConfig.getAcctRpkbunGaji();
+                sourceRetur =   spanConfig.getAcctRrRpkbunGaji();
+                break;
+            case "BO1":
+                sourceAccount=spanConfig.getAcctRpkbunNonGaji();
+                sourceRetur=spanConfig.getAcctRrRpkbunNonGaji();
+                break;
+            default:
+                sourceAccount=spanConfig.getAcctReksusSbsn();
+                sourceRetur=spanConfig.getAcctRrReksusSbsn();
         }
 
-         MainCHK.tulisLog(sourceAccount + " " + sourceRetur);
+        MainCHK.tulisLog(sourceAccount + " " + sourceRetur);
         List<SpanSp2dStageIn> result = new ArrayList<>();
         String sql = "SELECT " + "id, applicationareasenderidentifier, applicationareareceiveridentifier, " +
                      "applicationareadetailsenderidentifier, applicationareadetailreceiveridentifier, " +
@@ -477,12 +487,10 @@ public class ServiceMariaDb {
                 while (rs.next()){
                 int id = rs.getInt("id");
                 String status = rs.getString("status");
-                //String ack = rs.getString("flag_ack");
                 BigDecimal amount = rs.getBigDecimal("amount");
                 if (amount == null){
                     amount = BigDecimal.ZERO;
                 }
-
                String applicationAreaSenderIdentifier = rs.getString("applicationareasenderidentifier");
                String applicationAreaReceiverIdentifier =rs.getString("applicationareareceiveridentifier");
                String applicationAreaDetailSenderIdentifier =rs.getString("applicationareadetailsenderidentifier");
@@ -492,51 +500,28 @@ public class ServiceMariaDb {
                String applicationAreaMessageTypeIndicator =rs.getString("applicationareamessagetypeindicator");
                String applicationAreaMessageVersionText =rs.getString("applicatioanareamessageversiontext");
                LocalDate documentDate =rs.getDate("documentdate") != null? rs.getDate("documentdate").toLocalDate(): null;
-
-                String documentNumber =rs.getString("documentnumber");
-                
-                String beneficiaryName =rs.getString("beneficiaryname");
-                
-                String beneficiaryBankCode =rs.getString("beneficiarybankcode");
-                
-                String beneficiaryBank =rs.getString("beneficiarybank");
-                
-                String beneficiaryAccount =rs.getString("beneficiaryaccount");
-                
-                String currencyTarget =rs.getString("currencytarget");
-                
-                String description =rs.getString("description");
-                
-                String agentBankCode =rs.getString("agentbankcode");
-
-                String agentBankAccountNumber =rs.getString("agentbankaccountnumber");
-                
-                String agentBankAccountName =rs.getString("agentbankaccountname");
-                
-                String emailAddress =rs.getString("emailaddress");
-                
-                String swiftCode =rs.getString("swiftcode");
-                
-                String ibanCode =rs.getString("ibancode");
-                
-                String paymentMethod =rs.getString("paymentmethod");
-                
-                int sp2dCount =rs.getInt("sp2dcount");
-                
-                int totalCount =rs.getInt("totalcount");
-                
-                BigDecimal totalAmount =rs.getBigDecimal("totalamount");
-                
-                Integer totalBatchCount =rs.getInt("totalbatchcount");
-
+               String documentNumber =rs.getString("documentnumber");
+               String beneficiaryName =rs.getString("beneficiaryname");
+               String beneficiaryBankCode =rs.getString("beneficiarybankcode");
+               String beneficiaryBank =rs.getString("beneficiarybank");
+               String beneficiaryAccount =rs.getString("beneficiaryaccount");
+               String currencyTarget =rs.getString("currencytarget");
+               String description =rs.getString("description");
+               String agentBankCode =rs.getString("agentbankcode");
+               String agentBankAccountNumber =rs.getString("agentbankaccountnumber");
+               String agentBankAccountName =rs.getString("agentbankaccountname");
+               String emailAddress =rs.getString("emailaddress");
+               String swiftCode =rs.getString("swiftcode");
+               String ibanCode =rs.getString("ibancode");
+               String paymentMethod =rs.getString("paymentmethod");
+               int sp2dCount =rs.getInt("sp2dcount");
+               int totalCount =rs.getInt("totalcount");
+               BigDecimal totalAmount =rs.getBigDecimal("totalamount");
+               Integer totalBatchCount =rs.getInt("totalbatchcount");
                String sp2dNumber =rs.getString("sp2d_number");
-               
                LocalDate datePosting =rs.getDate("date_posting") != null? rs.getDate("date_posting").toLocalDate(): null;
-               
                String referenceNumber =rs.getString("reference_number");
-               
                String returnCode =rs.getString("return_code");
-
                SpanSp2dStageIn objData = new SpanSp2dStageIn(
                  id, applicationAreaSenderIdentifier,
                  applicationAreaReceiverIdentifier,
@@ -575,7 +560,6 @@ public class ServiceMariaDb {
             }
           }
         }
-       
         return result;
     }
 
@@ -710,12 +694,13 @@ public class ServiceMariaDb {
         ReturnStatusAck ack = map_status_code.get(response.getResponseCode());
 
         SpanSp2dPosting rec = constructDataForposting(stageIn, ack , response.getResponseCode());
+
         // ft number from response credit transfer
         rec.referenceNumber = response.getReferenceId();
         
         insertPostingRecords(rec);
         
-        if (!rec.returnCode.equals("000")){
+        if (!rec.returnCode.equals(response.isSuccess())){
             updateErrorRecords(rec);
          }else{
            finalizeSuccessRecords(stageIn);
@@ -726,14 +711,38 @@ public class ServiceMariaDb {
     }
 
     public SpanSp2dPosting constructDataForposting(SpanSp2dStageIn stageIn ,ReturnStatusAck ack, String response){
-       boolean benefciaryAccountisRR = stageIn.getBeneficiaryAccount().equals(spanConfig.getAcctRrRpkbunGaji());
-       SpanSp2dPosting rec = Utillity.builderSpanSp2dPosting(stageIn);
-      if (benefciaryAccountisRR){
-           rec.beneficiaryName="ACCT_RR_RPKBUN_GAJI_BSM";
-      }
-        
-      // FALLBACK error saat ini hardcode menjadi timeout
-        rec.returnCode= response !=null ? response: "200";
+
+        String transactionType = Utillity.getTransactionType(stageIn, this.spanConfig);
+        String beneficiaryAccount = "";
+
+        switch (transactionType.trim().toUpperCase()) {
+            case "BO2":
+                beneficiaryAccount = this.spanConfig.getAcctRrRpkbunGaji();
+                break;
+            case "BO1":
+                beneficiaryAccount = this.spanConfig.getAcctRrRpkbunNonGaji();
+                break;
+            default:
+                beneficiaryAccount = this.spanConfig.getAcctRrReksusSbsn();
+        }
+        boolean benefciaryAccountisRR = stageIn.getBeneficiaryAccount().equals(beneficiaryAccount);
+
+        SpanSp2dPosting rec = Utillity.builderSpanSp2dPosting(stageIn);
+
+        if (benefciaryAccountisRR){
+           switch (transactionType) {
+               case "BO2":
+                   rec.beneficiaryName= "ACCT_RR_RPKBUN_GAJI_BSM";
+                   break;
+               case "BO1":
+                   rec.beneficiaryName= "ACCT_RR_RPKBUN_NON_GAJI_BSM";
+                   break;
+               default:
+                   rec.beneficiaryName= "ACCT_RR_REKSUS_BSM";
+           }
+       }
+
+        rec.returnCode= response;
 
         if (ack != null && "Reject".equals(ack.status)) {
             rec.status = "RDY-008";
@@ -761,7 +770,7 @@ public class ServiceMariaDb {
         ReturnStatusAck ack = map_status_code.get(response.getResponseCode());
 
         SpanSp2dPosting rec = constructDataForposting(stageIn, ack, response.getResponseCode());       
-        rec.referenceNumber ="dummy ft yang sudah terbuku di core";
+        rec.referenceNumber =response.getReferenceId();
         insertPostingRecords(rec);
     }
    
@@ -847,7 +856,27 @@ public class ServiceMariaDb {
 
 
     public void finalizeSuccessRecords(SpanSp2dStageIn stagein) throws SQLException {
-       String sql = Utillity.finalizeSuccesRecord(spanConfig.getAcctRpkbunGaji(),spanConfig.getAcctRrRpkbunGaji());
+
+        String transactionType = Utillity.getTransactionType(stagein, this.spanConfig);
+
+        String sourceAccount="";
+        String returAccount="";
+
+        switch (transactionType) {
+            case "BO2":
+                sourceAccount = spanConfig.getAcctRpkbunGaji();
+                returAccount  = spanConfig.getAcctRrRpkbunGaji();
+                break;
+            case "BO1":
+                sourceAccount =spanConfig.getAcctRpkbunNonGaji();
+                returAccount  =spanConfig.getAcctRrRpkbunNonGaji();
+                break;
+            default:
+                sourceAccount =spanConfig.getAcctReksusSbsn();
+                returAccount  =spanConfig.getAcctRrReksusSbsn();
+        }
+
+       String sql = Utillity.finalizeSuccesRecord(sourceAccount,returAccount);
        try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
             ps.setString(2,statusReadyPosting);
@@ -858,7 +887,26 @@ public class ServiceMariaDb {
   } 
 
     public void finalizeSuccessRecordsAfterRetyRetur(SpanSp2dStageIn stagein) throws SQLException {
-       String sql = Utillity.finalizeSuccesRecord(spanConfig.getAcctRpkbunGaji(),spanConfig.getAcctRrRpkbunGaji());
+
+        String transactionType = Utillity.getTransactionType(stagein, this.spanConfig);
+
+        String sourceAccount="";
+        String returAccount="";
+
+        switch (transactionType.trim().toUpperCase()) {
+            case "BO2":
+                sourceAccount = spanConfig.getAcctRpkbunGaji();
+                returAccount  = spanConfig.getAcctRrRpkbunGaji();
+                break;
+            case "BO1":
+                sourceAccount =spanConfig.getAcctRpkbunNonGaji();
+                returAccount  =spanConfig.getAcctRrRpkbunNonGaji();
+                break;
+            default:
+                sourceAccount =spanConfig.getAcctReksusSbsn();
+                returAccount  =spanConfig.getAcctRrReksusSbsn();
+        }
+        String sql = Utillity.finalizeSuccesRecord(sourceAccount,returAccount);
        try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
             ps.setString(2, statusForRetryRetur);
@@ -869,18 +917,57 @@ public class ServiceMariaDb {
   } 
 
       public void finalizeSuccessRecordsAfterReturManual(SpanSp2dStageIn stagein) throws SQLException {
-       String sql = Utillity.finalizeSuccesRecord(spanConfig.getAcctRpkbunGaji(),spanConfig.getAcctRrRpkbunGaji());
+          String transactionType = Utillity.getTransactionType(stagein, this.spanConfig);
+
+          String sourceAccount="";
+          String returAccount="";
+
+          switch (transactionType.trim().toUpperCase()) {
+              case "BO2":
+                  sourceAccount = spanConfig.getAcctRpkbunGaji();
+                  returAccount  = spanConfig.getAcctRrRpkbunGaji();
+                  break;
+              case "BO1":
+                  sourceAccount =spanConfig.getAcctRpkbunNonGaji();
+                  returAccount  =spanConfig.getAcctRrRpkbunNonGaji();
+                  break;
+              default:
+                  sourceAccount =spanConfig.getAcctReksusSbsn();
+                  returAccount  =spanConfig.getAcctRrReksusSbsn();
+          }
+
+        String sql = Utillity.finalizeSuccesRecord(sourceAccount,returAccount);
        try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
             ps.setString(2, statusForManualRetur);
             ps.setString(3,stagein.getDocumentNumber());
+            MainCHK.tulisLog(ps);
             int updated = ps.executeUpdate();
         System.out.println("Finalized " + updated + " record(s): RRM-000 → FIN-000");
     }
   } 
 
    public void finalizeSuccessRecordsAfterGetStatus(SpanSp2dStageIn stagein) throws SQLException {
-       String sql = Utillity.finalizeSuccesRecord(spanConfig.getAcctRpkbunGaji(),spanConfig.getAcctRrRpkbunGaji());
+
+       String transactionType = Utillity.getTransactionType(stagein, this.spanConfig);
+
+       String sourceAccount="";
+       String returAccount="";
+
+       switch (transactionType.trim().toUpperCase()) {
+           case "BO2":
+               sourceAccount = spanConfig.getAcctRpkbunGaji();
+               returAccount  = spanConfig.getAcctRrRpkbunGaji();
+               break;
+           case "BO1":
+               sourceAccount =spanConfig.getAcctRpkbunNonGaji();
+               returAccount  =spanConfig.getAcctRrRpkbunNonGaji();
+               break;
+           default:
+               sourceAccount =spanConfig.getAcctReksusSbsn();
+               returAccount  =spanConfig.getAcctRrReksusSbsn();
+       }
+        String sql = Utillity.finalizeSuccesRecord(sourceAccount,returAccount);
        try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
             ps.setString(2, statusForRetryGetstatus);
@@ -893,7 +980,7 @@ public class ServiceMariaDb {
     public void failedProcessBifast(SpanSp2dStageIn item,String responseCode) throws SQLException{
         
         Map<String,BifastRcMapping> map = Utillity.fetchBifastRcMappingCt(conn);
-        String rcBifast = map != null ? Utillity.safe(map.get(rcForTimeoutCtProcess).span_rc) : "";
+        String rcBifast = map != null ? Utillity.safe(map.get(responseCode).span_rc) : "";
 
         String sql ="UPDATE span_sp2d_stage_in " +
                     "SET bifast_response_code = ? "+
@@ -971,9 +1058,27 @@ public class ServiceMariaDb {
        }
     }
 
-    public void updateSp2dstageinBo2(SpanSp2dStageIn item) throws SQLException{
-        String sourceAccount = spanConfig.getAcctRpkbunGaji();
-        String sourceRetur =   spanConfig.getAcctRrRpkbunGaji();
+    public void updateSp2dstagein(SpanSp2dStageIn item) throws SQLException{
+
+        String transactionType = Utillity.getTransactionType(item, this.spanConfig);
+        String sourceAccount;
+        String sourceRetur;
+
+        switch (transactionType.trim().toUpperCase()) {
+            case "BO2":
+                sourceAccount = spanConfig.getAcctRpkbunGaji();
+                sourceRetur =   spanConfig.getAcctRrRpkbunGaji();
+                break;
+            case "BO1":
+                sourceAccount = spanConfig.getAcctRpkbunNonGaji();
+                sourceRetur =   spanConfig.getAcctRrRpkbunNonGaji();
+                break;
+            default:
+                sourceAccount = spanConfig.getAcctReksusSbsn();
+                sourceRetur =   spanConfig.getAcctRrReksusSbsn();
+        }
+
+
         String sql = Utillity.updateSp2dStageIn(2);
 
         try(PreparedStatement ps = conn.prepareStatement(sql)){
@@ -987,7 +1092,7 @@ public class ServiceMariaDb {
             MainCHK.tulisLog(ps);
             int rowUpdate = ps.executeUpdate();
             if (rowUpdate == 0){
-                MainCHK.tulisLog("Error update status PST pada id "+item.getId());
+                MainCHK.tulisLog("Error update status PST pada document number : "+item.getDocumentNumber());
             }else {
                 MainCHK.tulisLog("terdapat "+rowUpdate+" Data yang terupdate menjadi "+statusReadyPosting);
             }
@@ -995,8 +1100,25 @@ public class ServiceMariaDb {
     }
 
     public void updateSp2dstageinAEerror(SpanSp2dStageIn item, String mappingRc ,String returnCode) throws SQLException{
-        String sourceAccount = spanConfig.getAcctRpkbunGaji();
-        String sourceRetur =   spanConfig.getAcctRrRpkbunGaji();
+
+        String transactionType = Utillity.getTransactionType(item, this.spanConfig);
+        String sourceAccount;
+        String sourceRetur;
+
+        switch (transactionType.trim().toUpperCase()) {
+            case "BO2":
+                sourceAccount = spanConfig.getAcctRpkbunGaji();
+                sourceRetur =   spanConfig.getAcctRrRpkbunGaji();
+                break;
+            case "BO1":
+                sourceAccount = spanConfig.getAcctRpkbunNonGaji();
+                sourceRetur =   spanConfig.getAcctRrRpkbunNonGaji();
+                break;
+            default:
+                sourceAccount = spanConfig.getAcctReksusSbsn();
+                sourceRetur =   spanConfig.getAcctRrReksusSbsn();
+        }
+
         String sql = "UPDATE span_sp2d_stage_in SET status = ? , bifast_response_code = ? , " +
                      "return_code = ? WHERE documentdate = ? " +
                      "AND status = ? " +
@@ -1071,16 +1193,14 @@ public class ServiceMariaDb {
     }
 
     public void updateSp2dUploaded(SpanSp2dStageIn item) throws SQLException {
-        SpanConfig spanConfig = Utillity.loadApplicationConfig(conn);
-       
+
         String sql = "UPDATE span_sp2d_uploaded SET status = ? " +
                      "WHERE date_format(date(uploadeddate),'%Y-%m-%d') = ? " +
                      "AND status = ? ";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, statusReadyPosting);
-            ps.setString(2, spanConfig.getAppDate());
+            ps.setString(2, this.spanConfig.getAppDate());
             ps.setString(3, statusReadyProsesBifast);
-            MainCHK.tulisLog(ps);
             int updated = ps.executeUpdate();
             MainCHK.tulisLog("Updated span_sp2d_uploaded: " + updated + " row(s) → PST-000");
         }
@@ -1091,7 +1211,6 @@ public class ServiceMariaDb {
           List<SpanSp2dPosting> result = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, documentNumber);
-            MainCHK.tulisLog("Get data for generate Ack Retur");
             try (ResultSet rs = ps.executeQuery()) {
                  while(rs.next()) {
                     SpanSp2dPosting row = new SpanSp2dPosting();                                    
@@ -1120,10 +1239,36 @@ public class ServiceMariaDb {
             ps.setString(3, spanConfig.getAcctRpkbunGaji());
             ps.setString(4, spanConfig.getAcctRrRpkbunGaji());
             ps.setString(5, documentNumber);
-            MainCHK.tulisLog("Get data for generate Ack Retur");
             try (ResultSet rs = ps.executeQuery()) {
                  while(rs.next()) {
                     SpanSp2dPosting row = new SpanSp2dPosting();                                    
+                    row.id = rs.getLong("id");
+                    row.applicationareaMessageTypeIndicator     = rs.getString("applicationareamessagetypeindicator");
+                    row.applicationareaSenderIdentifier         = rs.getString("applicationareasenderidentifier");
+                    row.applicationareaMessageIdentifier        = rs.getString("applicationareamessageidentifier");
+                    row.amount                                  = rs.getBigDecimal("amount");
+                    row.returnCode                              = rs.getString("return_code");
+                    row.documentNumber                          = rs.getString("documentnumber");
+                    row.paymentMethod                           = rs.getString("paymentmethod");
+                    result.add(row);
+                }
+            }
+        }
+        return result;
+    }
+
+    public  List<SpanSp2dPosting> fetchSp2dPostingForNonGaji(String documentNumber) throws SQLException {
+        String sql =Utillity.getDataPostingForGenerateAck();
+        List<SpanSp2dPosting> result = new ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, spanConfig.getAcctRpkbunNonGaji());
+            ps.setString(2, spanConfig.getAcctRrReksusSbsn());
+            ps.setString(3, spanConfig.getAcctRpkbunNonGaji());
+            ps.setString(4, spanConfig.getAcctRrRpkbunNonGaji());
+            ps.setString(5, documentNumber);
+            try (ResultSet rs = ps.executeQuery()) {
+                while(rs.next()) {
+                    SpanSp2dPosting row = new SpanSp2dPosting();
                     row.id = rs.getLong("id");
                     row.applicationareaMessageTypeIndicator     = rs.getString("applicationareamessagetypeindicator");
                     row.applicationareaSenderIdentifier         = rs.getString("applicationareasenderidentifier");
@@ -1223,16 +1368,24 @@ public class ServiceMariaDb {
     }
    }
 
-    public void prosesAck(String documentNumber){
+    public void prosesAck(SpanSp2dStageIn item){
         GenerateAckOut generateAckOut = new GenerateAckOut();
-        MainCHK.tulisLog("Ini proses generate ack");
+        MainCHK.tulisLog("Process generate ack untuk document number :" + item.getDocumentNumber());
+        List<SpanSp2dPosting> source = null;
        try{
-        List<SpanSp2dPosting> source = fetchSp2dPostingForGaji(documentNumber);
-        MainCHK.tulisLog("Jumlah Array data " + source.size());
+           String transactionType = Utillity.getTransactionType(item, this.spanConfig);
+           switch (transactionType.trim().toUpperCase()) {
+               case "BO2":
+                   source = fetchSp2dPostingForGaji(item.getDocumentNumber());;
+                   break;
+               case "BO1":
+                   source = fetchSp2dPostingForNonGaji(item.getDocumentNumber());
+                   break;
+           }
 
         Map<String,ReturnStatusAck> map_status_code = Utillity.fetchReturnStatusAck(conn);
-       
-          if (!source.isEmpty()){
+
+          if (!source.isEmpty() && source != null){
             String outputPath = generateAckOut.generateAckFile(conn,spanConfig,source,map_status_code);
             generateAckOut.copyToArchiveIfExists(spanConfig, outputPath, new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
             for (SpanSp2dPosting data : source){
@@ -1250,12 +1403,9 @@ public class ServiceMariaDb {
         MainCHK.tulisLog("Proses generate ack retur");
        try{
         List<SpanSp2dPosting> source = fetchSp2dPostingForAckRetur(documentNumber);
-        MainCHK.tulisLog("Jumlah Array data " + source.size());
-
         Map<String,ReturnStatusAck> map_status_code = Utillity.fetchReturnStatusAck(conn);
        
           if (!source.isEmpty()){
-            MainCHK.tulisLog("Ini proses generate ack2");
             String outputPath = generateAckOut.generateAckFile(conn,spanConfig,source,map_status_code);
             generateAckOut.copyToArchiveIfExists(spanConfig, outputPath, new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
             for (SpanSp2dPosting data : source){
@@ -1298,11 +1448,37 @@ public class ServiceMariaDb {
  
    public void insertReturDatainPostingTable(SpanSp2dStageIn stageIn, FundsTransferSoapResponse response) throws SQLException{
     try{
-        boolean benefciaryAccountisRR = Utillity.safe(stageIn.getBeneficiaryAccount()).equals(Utillity.safe(spanConfig.getAcctRrRpkbunGaji()));
+
+        String transactionType = Utillity.getTransactionType(stageIn, this.spanConfig);
+        String beneficiaryAccount = "";
+
+        switch (transactionType) {
+            case "BO2":
+                beneficiaryAccount = this.spanConfig.getAcctRrRpkbunGaji();
+                break;
+            case "BO1":
+                beneficiaryAccount = this.spanConfig.getAcctRrRpkbunNonGaji();
+                break;
+            default:
+                beneficiaryAccount = this.spanConfig.getAcctRrReksusSbsn();
+        }
+
+
+        boolean benefciaryAccountisRR = stageIn.getBeneficiaryAccount().equals(beneficiaryAccount);
         SpanSp2dPosting rec = Utillity.builderSpanSp2dPosting(stageIn);
-      if (benefciaryAccountisRR){
-           rec.beneficiaryName="ACCT_RR_RPKBUN_GAJI_BSM";
-      }
+        if (benefciaryAccountisRR){
+            switch (transactionType) {
+                case "BO2":
+                    rec.beneficiaryName= "ACCT_RR_RPKBUN_GAJI_BSM";
+                    break;
+                case "BO1":
+                    rec.beneficiaryName= "ACCT_RR_RPKBUN_NON_GAJI_BSM";
+                    break;
+                default:
+                    rec.beneficiaryName= "ACCT_RR_REKSUS_BSM";
+            }
+        }
+
         //return code yang awalnya dari core menjadi dari balikan response tws
         if (response.isSuccess()){
           rec.returnCode= "000";
@@ -1484,6 +1660,20 @@ public class ServiceMariaDb {
         qUpdate.setString(3, currentStatus);
         qUpdate.executeUpdate();
      }
+   }
+
+   public String getBankCode(String bankCode) throws SQLException{
+        String sql = Utillity.getBankCode();
+        String result = null;
+        try (PreparedStatement ps = conn.prepareStatement(sql) ){
+            ps.setString(1,bankCode);
+            try(ResultSet rs = ps.executeQuery()){
+                if (rs.next()){
+                    result = rs.getString("participant");
+                }
+            }
+        }
+        return result;
    }
 
 

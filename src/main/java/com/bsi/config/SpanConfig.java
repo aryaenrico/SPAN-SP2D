@@ -1,5 +1,8 @@
 package com.bsi.config;
 
+import java.io.*;
+import java.util.Properties;
+
 public class SpanConfig {
     
     // Account Numbers
@@ -18,59 +21,108 @@ public class SpanConfig {
     String branchCode;
     String rtgsCode;
     String currency = "IDR";
+
     // Dates
     String appDate;
     String appDateRealtime;
-    // Paths
-    String pathBo2spanHome = "/home/span";
-    String pathBo2spanConfig = "/apps/bo2span/data/config";
-    String pathCorePostingServiceRequest = "/apps/bo2span/data/core/posting_service/request";
-    String pathSpanAcknowledgePut = "/apps/bo2span/data/span/acknowledge/put";
-    String pathSpanAcknowledgeArchive= "/apps/bo2span/data/span/acknowledge/archive";
 
+    // Paths
+    String pathBo2spanHome;
+    String pathBo2spanConfig;
+    String pathCorePostingServiceRequest;
+    String pathSpanAcknowledgePut ;
+    String pathSpanAcknowledgeArchive;
+
+    String acctIaKewajibanBifast;
+
+    public static SpanConfig fromProperties(String location){
+        Properties props = new Properties();
+        InputStream in = null;
+        try{
+            File file = new File(location);
+            if (file.isFile()){
+                in = new FileInputStream(location);
+            }else {
+                in = BifastConfig.class.getClassLoader().getResourceAsStream(location);
+            }
+
+            if (in == null){
+                throw new IllegalStateException("File Properties tidak ditemukan di filesystem maupun classpath"+location);
+            }
+
+            props.load(in);
+
+        }catch(IOException e){
+            throw new UncheckedIOException("gagal membaca file properties "+location,e);
+
+        }finally{
+            if (in != null){
+                try {in.close();
+                }catch(IOException ignore){}}
+        }
+        return fromProperties(props);
+    }
+
+    public static SpanConfig fromProperties(Properties prop){
+        SpanConfig cfg = new SpanConfig();
+        cfg.setPathBo2spanHome(trimToNull(prop.getProperty("path_bo2span_home")));
+        cfg.setPathBo2spanConfig(trimToNull(prop.getProperty("path_bo2span_config")));
+        cfg.setPathSpanAcknowledgePut(trimToNull(prop.getProperty("path_bo2span_span_acknowledge_put")));
+        cfg.setPathSpanAcknowledgeArchive(trimToNull(prop.getProperty("path_bo2span_span_acknowledge_archive")));
+        return cfg;
+    }
+
+    private static String trimToNull(String value){
+        if (value==null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+
+    public void setAcctIaKewajibanBifats(String iaKewajibanBifast){
+     this.acctIaKewajibanBifast = iaKewajibanBifast;
+    }
+
+    public String getAcctIaKewajibanBifast(){
+        return this.acctIaKewajibanBifast;
+    }
     public String getpathSpanAcknowledgeArchive(){
         return this.pathSpanAcknowledgeArchive;
     }
 
-    // Getter & Setter
-   public String getPathSpanAcknowledgePut(){
-    return this.pathSpanAcknowledgePut;
-   }
-
-   public String getAcctRrReksusSbsn() {
+    public String getAcctRrReksusSbsn() {
        return this.acctRrReksusSbsn;
    }
    
-   public void setAcctRrReksusSbsn(String acctRrReksusSbsn) {
+    public void setAcctRrReksusSbsn(String acctRrReksusSbsn) {
        this.acctRrReksusSbsn = acctRrReksusSbsn;
    }
 
-   public String getAcctReksusSbsn() {
+    public String getAcctReksusSbsn() {
        return this.acctReksusSbsn;
    }
    
-   public void setAcctReksusSbsn(String acctReksusSbsn) {
+    public void setAcctReksusSbsn(String acctReksusSbsn) {
        this.acctReksusSbsn = acctReksusSbsn;
    }
    
-   public String getAcctRrRpkbunGaji() {
+    public String getAcctRrRpkbunGaji() {
        return acctRrRpkbunGaji;
    }
    
-   public void setAcctRrRpkbunGaji(String acctRrRpkbunGaji) {
+    public void setAcctRrRpkbunGaji(String acctRrRpkbunGaji) {
        this.acctRrRpkbunGaji = acctRrRpkbunGaji;
    }
 
- 
     public String getAcctRpkbunNonGaji() {
        return acctRpkbunNonGaji;
    }
    
-   public void setAcctRpkbunNonGaji(String acctRpkbunNonGaji) {
+    public void setAcctRpkbunNonGaji(String acctRpkbunNonGaji) {
        this.acctRpkbunNonGaji = acctRpkbunNonGaji;
    }
    
-   public String getAcctRrRpkbunNonGaji() {
+    public String getAcctRrRpkbunNonGaji() {
        return acctRrRpkbunNonGaji;
    }
    
@@ -157,6 +209,22 @@ public class SpanConfig {
    
    public void setPathBo2spanConfig(String pathBo2spanConfig) {
        this.pathBo2spanConfig = pathBo2spanConfig;
+   }
+
+   public void setPathSpanAcknowledgePut(String pathSpanAcknowledgePut){
+        this.pathSpanAcknowledgePut = pathSpanAcknowledgePut;
+   }
+
+   public String getPathSpanAcknowledgePut(){
+        return this.pathSpanAcknowledgePut;
+   }
+
+   public void setPathSpanAcknowledgeArchive(String pathSpanAcknowledgeArchive){
+        this.pathSpanAcknowledgeArchive = pathSpanAcknowledgeArchive;
+   }
+
+   public String getPathSpanAcknowledgeArchive(){
+        return this.pathSpanAcknowledgeArchive;
    }
    
    public String getPathCorePostingServiceRequest() {

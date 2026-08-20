@@ -1,18 +1,15 @@
 package com.bsi;
 
 
+import com.bsi.config.BifastConfig;
 import com.bsi.entity.mock.ProcessBifast;
 import com.bsi.entity.mock.SpanSp2dStageIn;
+import com.bsi.entity.span.PathPropertiesBifast;
 import com.bsi.service.ServiceMariaDb;
-import java.sql.SQLException;
+import java.io.File;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -99,6 +96,16 @@ public class MainCHK {
                     e.printStackTrace(System.out);
                 }
                 break;
+
+            case "includeOutOfBalanceBO2Bifast":
+                try {
+                    serviceMariaDb.includeOutOfBalanceBO2Bifast();
+                    tulisLog("includeOutOfBalanceBO2 done");
+                } catch (Throwable e) {
+                    tulisLog("Throwable :" + e.getMessage());
+                    e.printStackTrace(System.out);
+                }
+                break;
             case "checkPaymentMethod4":
                 try {
                     serviceMariaDb.checkPaymentMethod4();
@@ -117,27 +124,43 @@ public class MainCHK {
                     e.printStackTrace(System.out);
                 }
                 break;
-            // [NEW][2026-08-03] Implementasi Multi-Threading: Memanggil paymentBifast dengan 3 worker threads
+            // [IMPROVEMENT][2026-08-12] Load BifastConfig secara aman dengan path ter-normalisasi lalu kirim ke ProcessBifast(config, propPath, propName)
             case "prosesTransactionBifast":
                 try {
-                    tulisLog("[MULTI-THREAD] Running command prosesTransactionBifast...");
+                    tulisLog("Start proses posting transaction...");
                     List<SpanSp2dStageIn> dataBifast = serviceMariaDb.getDataBifast("BO2");
-                    ProcessBifast processBifast = new ProcessBifast();
-                    processBifast.paymentBifast(dataBifast, "BO2");
-                    tulisLog("prosesTransactionBifast done..");
+
+                    PathPropertiesBifast pathPropertiesBifast = new PathPropertiesBifast(propPath,propName);
+                    String configFilePath = pathPropertiesBifast.getPathProp() + (pathPropertiesBifast.getPathProp().endsWith("/") || pathPropertiesBifast.getPathProp().endsWith("\\") ? "" : File.separator) + pathPropertiesBifast.getPropName() + ".properties";
+                    tulisLog("[CONFIG] Loading BifastConfig from: " + configFilePath);
+
+                    BifastConfig config = BifastConfig.fromProperties(configFilePath);
+
+                    ProcessBifast processBifast = new ProcessBifast(config, pathPropertiesBifast);
+                    processBifast.paymentBifast(dataBifast);
+
+                    tulisLog("Proses posting transaction done..");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
                     e.printStackTrace(System.out);
                 }
                 break; 
-            // [NEW][2026-08-03] GAP 7: Scheduler command untuk memproses transaksi BI-FAST yang Timeout (TMO-000)
+            // Scheduler command untuk memproses transaksi BI-FAST yang Timeout (TMO-000)
             case "prosesTimeoutCtBifast":
                 try {
-                    tulisLog("[GAP7] Running command prosesTimeoutCtBifast...");
+                    tulisLog(" Start proses Timeout Ct Bifast...");
                     List<SpanSp2dStageIn> dataTmo = serviceMariaDb.getDataBifastForSchedulerPurpose(serviceMariaDb.statusTimeoutCreditTransferBifast);
-                    ProcessBifast processBifast = new ProcessBifast();
+
+                    PathPropertiesBifast pathPropertiesBifast = new PathPropertiesBifast(propPath,propName);
+                    String configFilePath = pathPropertiesBifast.getPathProp() + (pathPropertiesBifast.getPathProp().endsWith("/") || pathPropertiesBifast.getPathProp().endsWith("\\") ? "" : File.separator) + pathPropertiesBifast.getPropName() + ".properties";
+                    tulisLog("[CONFIG] Loading BifastConfig from: " + configFilePath);
+
+                    BifastConfig config = BifastConfig.fromProperties(configFilePath);
+
+                    ProcessBifast processBifast = new ProcessBifast(config,pathPropertiesBifast);
                     processBifast.prosesTimeoutCtBifast(dataTmo);
-                    tulisLog("prosesTimeoutCtBifast done..");
+
+                    tulisLog("proses TimeoutCt Bifast done..");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
                     e.printStackTrace(System.out);
@@ -146,11 +169,18 @@ public class MainCHK {
             // Scheduler command untuk memproses ulang check status BI-FAST (RGS-000)
             case "prosesRetryGetstatus":
                 try {
-                    tulisLog("Running scheduler prosesRetryGetstatus...");
+                    tulisLog("Running scheduler proses Retry Get status...");
                     List<SpanSp2dStageIn> dataRgs = serviceMariaDb.getDataBifastForSchedulerPurpose(serviceMariaDb.statusForRetryGetstatus);
-                    ProcessBifast processBifast = new ProcessBifast();
+
+                    PathPropertiesBifast pathPropertiesBifast = new PathPropertiesBifast(propPath,propName);
+                    String configFilePath = pathPropertiesBifast.getPathProp() + (pathPropertiesBifast.getPathProp().endsWith("/") || pathPropertiesBifast.getPathProp().endsWith("\\") ? "" : File.separator) + pathPropertiesBifast.getPropName() + ".properties";
+                    tulisLog("[CONFIG] Loading BifastConfig from: " + configFilePath);
+
+                    BifastConfig config = BifastConfig.fromProperties(configFilePath);
+                    ProcessBifast processBifast = new ProcessBifast(config,pathPropertiesBifast);
                     processBifast.prosesTimeoutCtBifast(dataRgs);
-                    tulisLog("prosesRetryGetstatus done..");
+
+                    tulisLog("proses Retry Get status done..");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
                     e.printStackTrace(System.out);
@@ -161,7 +191,13 @@ public class MainCHK {
                 try {
                     tulisLog("Running command prosesRetryRetur...");
                     List<SpanSp2dStageIn> dataRrs = serviceMariaDb.getDataBifastForSchedulerPurpose(serviceMariaDb.statusForRetryRetur);
-                    ProcessBifast processBifast = new ProcessBifast();
+
+                    PathPropertiesBifast pathPropertiesBifast = new PathPropertiesBifast(propPath,propName);
+                    String configFilePath = pathPropertiesBifast.getPathProp() + (pathPropertiesBifast.getPathProp().endsWith("/") || pathPropertiesBifast.getPathProp().endsWith("\\") ? "" : File.separator) + pathPropertiesBifast.getPropName() + ".properties";
+                    tulisLog("[CONFIG] Loading BifastConfig from: " + configFilePath);
+
+                    BifastConfig config = BifastConfig.fromProperties(configFilePath);
+                    ProcessBifast processBifast = new ProcessBifast(config,pathPropertiesBifast);
                     processBifast.prosesRetryRetur(dataRrs);
                     tulisLog("prosesRetryRetur done..");
                 } catch (Throwable e) {
@@ -175,8 +211,15 @@ public class MainCHK {
                 try {
                     tulisLog("Running command proses retur ...");
                     List<SpanSp2dStageIn> dataRrs = serviceMariaDb.getDataBifastForSchedulerPurpose(serviceMariaDb.statusForManualRetur);
-                    ProcessBifast processBifast = new ProcessBifast();
+
+                    PathPropertiesBifast pathPropertiesBifast = new PathPropertiesBifast(propPath,propName);
+                    String configFilePath = pathPropertiesBifast.getPathProp() + (pathPropertiesBifast.getPathProp().endsWith("/") || pathPropertiesBifast.getPathProp().endsWith("\\") ? "" : File.separator) + pathPropertiesBifast.getPropName() + ".properties";
+                    tulisLog("[CONFIG] Loading BifastConfig from: " + configFilePath);
+
+                    BifastConfig config = BifastConfig.fromProperties(configFilePath);
+                    ProcessBifast processBifast = new ProcessBifast(config,pathPropertiesBifast);
                     processBifast.prosesRetur(dataRrs);
+
                     tulisLog("proses Retur done..");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
@@ -188,8 +231,14 @@ public class MainCHK {
                 try {
                     tulisLog("Running command proses transaksi pending validasi nama ...");
                     List<SpanSp2dStageIn> dataProcess = serviceMariaDb.getDataBifastForSchedulerPurpose(serviceMariaDb.statusForApprovedValidationName);
-                    ProcessBifast processBifast = new ProcessBifast();
-                    processBifast.paymentBifast(dataProcess, "BO2");
+
+                    PathPropertiesBifast pathPropertiesBifast = new PathPropertiesBifast(propPath,propName);
+                    String configFilePath = pathPropertiesBifast.getPathProp() + (pathPropertiesBifast.getPathProp().endsWith("/") || pathPropertiesBifast.getPathProp().endsWith("\\") ? "" : File.separator) + pathPropertiesBifast.getPropName() + ".properties";
+                    tulisLog("[CONFIG] Loading BifastConfig from: " + configFilePath);
+
+                    BifastConfig config = BifastConfig.fromProperties(configFilePath);
+                    ProcessBifast processBifast = new ProcessBifast(config,pathPropertiesBifast);
+                    processBifast.paymentBifast(dataProcess);
                     tulisLog("proses transaksi  done..");
                 } catch (Throwable e) {
                     tulisLog("Throwable :" + e.getMessage());
@@ -236,6 +285,7 @@ public class MainCHK {
     }
 
     public static void chkDS(String DSprop, String fileXml) {
+        /*
         DigitalSignature digitalSignature = new DigitalSignature(
                 DSprop
 //                "/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/bo2span.properties"
@@ -244,6 +294,8 @@ public class MainCHK {
         boolean result = digitalSignature.checkDigitalSignatureFile(fileXml);
         tulisLog("result chkDS " + fileXml + " :" + result);
         tulisLog("************************************************ END CHECK DS ***************************************************");
+    */
     }
+
 
 }

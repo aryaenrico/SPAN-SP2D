@@ -24,45 +24,46 @@ public class FundsTransferSoapRequest {
 
     @XmlAccessorType(XmlAccessType.FIELD)
     public static class WebRequestCommon {
-        @XmlElement(name = "userName") public String userName = "";
-        @XmlElement(name = "password") public String password = "";
-        @XmlElement(name = "company")  public String company = "";
+        @XmlElement(name = "userName") public String userName;
+        @XmlElement(name = "password") public String password;
+        @XmlElement(name = "company")  public String company;
     }
 
     @XmlAccessorType(XmlAccessType.FIELD)
     public static class OfsFunction {
-        @XmlElement(name = "gtsControl") public String gtsControl = "";
-        @XmlElement(name = "messageId")  public String messageId = "";
-        @XmlElement(name = "noOfAuth")   public String noOfAuth = "";
-        @XmlElement(name = "replace")    public String replace = "";
+        @XmlElement(name = "gtsControl") public String gtsControl;
+        @XmlElement(name = "messageId")  public String messageId;
+        @XmlElement(name = "noOfAuth")   public String noOfAuth;
+        @XmlElement(name = "replace")    public String replace;
     }
 
     @XmlAccessorType(XmlAccessType.FIELD)
     public static class FundsTransferIdiAcctTrfCmsType {
-        @XmlElement(name = "TransactionType") public String transactionType = "";
-        @XmlElement(name = "DebitAccount")    public String debitAccount = "";
-        @XmlElement(name = "DebitCurrency")   public String debitCurrency = "";
-        @XmlElement(name = "DebitAmount")     public String debitAmount = "";
-        @XmlElement(name = "DebitValueDate")  public String debitValueDate = "";
-        @XmlElement(name = "CreditAccount")   public String creditAccount = "";
-        @XmlElement(name = "CreditCurrency")  public String creditCurrency = "";
-        @XmlElement(name = "CreditAmount")    public String creditAmount = "";
-        @XmlElement(name = "CreditValueDate") public String creditValueDate = "";
-        @XmlElement(name = "Prosesdate")      public String prosesdate = "";
+        @XmlElement(name = "TransactionType") public String transactionType;
+        @XmlElement(name = "DebitAccount")    public String debitAccount;
+        @XmlElement(name = "DebitCurrency")   public String debitCurrency;
+        @XmlElement(name = "DebitAmount")     public String debitAmount;
+        @XmlElement(name = "DebitValueDate")  public String debitValueDate;
+        @XmlElement(name = "CreditAccount")   public String creditAccount;
+        @XmlElement(name = "CreditCurrency")  public String creditCurrency;
+        @XmlElement(name = "CreditAmount")    public String creditAmount;
+        @XmlElement(name = "CreditValueDate") public String creditValueDate;
+        @XmlElement(name = "Prosesdate")      public String prosesdate;
 
         @XmlElement(name = "gPAYMENTDETAILS")
         public GPaymentDetails gPaymentDetails = new GPaymentDetails();
 
-        @XmlElement(name = "RekeningBiaya") public String rekeningBiaya = "";
-        @XmlElement(name = "KodeBiaya")     public String kodeBiaya = "";
+        @XmlElement(name = "RekeningBiaya") public String rekeningBiaya;
+        @XmlElement(name = "KodeBiaya")     public String kodeBiaya;
 
+        // [FIX][2026-08-13] Default null agar tag gCOMMISSIONTYPE tidak digenerate secara otomatis jika tidak ada biaya
         @XmlElement(name = "gCOMMISSIONTYPE")
-        public GCommissionType gCommissionType = new GCommissionType();
+        public GCommissionType gCommissionType;
 
-        @XmlElement(name = "ProfitCentreDept") public String profitCentreDept = "";
-        @XmlElement(name = "AmountDebited")    public String amountDebited = "";
-        @XmlElement(name = "AmountCredited")   public String amountCredited = "";
-        @XmlElement(name = "MSGID")            public String msgId = "";
+        @XmlElement(name = "ProfitCentreDept") public String profitCentreDept;
+        @XmlElement(name = "AmountDebited")    public String amountDebited;
+        @XmlElement(name = "AmountCredited")   public String amountCredited;
+        @XmlElement(name = "MSGID")            public String msgId;
     }
 
 

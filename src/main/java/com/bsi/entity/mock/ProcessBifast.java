@@ -1,5 +1,6 @@
 package com.bsi.entity.mock;
 
+
 import java.io.File;
 import java.sql.SQLException;
 import java.util.List;
@@ -21,6 +22,7 @@ import com.bsi.entity.bifast.credittransfer.CreditTransferResponse;
 import com.bsi.entity.bifast.transactioninquiry.PaymenStatusRequest;
 import com.bsi.entity.bifast.transactioninquiry.PaymentStatusResponse;
 import com.bsi.entity.span.BifastRcMapping;
+import com.bsi.entity.span.PathPropertiesBifast;
 import com.bsi.entity.t24.FundsTransferSoapResponse;
 import com.bsi.service.BifastClient;
 import com.bsi.service.ProsesRetur;
@@ -31,44 +33,58 @@ import com.bsi.utility.Utillity;
 
 public class ProcessBifast {
 
-    private final String pathProp = "C:/Users/ven.arya/Downloads/Project/2026/SPAN/Custom Handler/span-custom-handler/tesDs";
-    private final String propName = "bo2span";
-    
-    BifastConfig config = BifastConfig.fromProperties("C:/Users/ven.arya/Downloads/Project/2026/SPAN/Custom Handler/span-custom-handler/tesDs"+ File.separator + "bo2span.properties");
-    BifastClient client = new BifastClient(config);
+    // [IMPROVEMENT][2026-08-11] Path & PropName dinamis dengan fallback ke Environment Variables
+    public String pathProp;
+    public String propName;
+    private int numThread;
+    private BifastConfig config;
+    private BifastClient client;
+    public T24Config configT24;
+    private T24Client t24Client;
+    private PathPropertiesBifast pathPropertiesBifast;
 
-    T24Config configT24 = T24Config.fromProperties();
-    T24Client t24Client = new T24Client(configT24);
-
-    // mapping rc 25 ae
-    private final String rcAccountNotFound = "AE028";
-    private final String rcBankIsMaintanace = "AE021";
-
-    // mapping rc 25 ct
-    private final String rcFailedCt = "CT022";
-    private final String rcFailedCtBankMaintanace = "CT021";
-
-  
-
-    // [NEW][2026-08-04] Factory method untuk membuat dedicated instance ServiceMariaDb (1 koneksi DB terisolasi per Worker Thread)
-    private ServiceMariaDb createMariaDbInstance() {
-        return new ServiceMariaDb(pathProp, propName);
+    // Parameterized Constructor (BifastConfig, String, String)
+    public ProcessBifast(BifastConfig config , PathPropertiesBifast pathPropertiesBifast) {
+        this.config = config;
+        this.pathPropertiesBifast = pathPropertiesBifast;
+        initClientsAndConfig();
     }
 
-    Map<String, BifastRcMapping> map =createMariaDbInstance().getBifastMappingRcAe();
+    // [FIX][2026-08-12] Inisialisasi client & config di dalam method constructor setelah pathProp & propName terisi
+    private void initClientsAndConfig() {
 
-    // [NEW][2026-08-04] Multi-Threading dengan 3 Dedicated Worker Threads & 3 Instance ServiceMariaDb Terpisah.
-    // Menggantikan pemblokiran 'synchronized' pada layer DB sehingga setiap worker thread memiliki koneksi MariaDB
-    // independen sendiri. Eksekusi HTTP REST/SOAP dan DB I/O kini berjalan 100% paralel secara optimal.
-    public String paymentBifast(List<SpanSp2dStageIn> processData, String typeTransaction) {
+        this.pathProp = this.pathPropertiesBifast.getPathProp();
+        this.propName = this.pathPropertiesBifast.getPropName();
+        this.client = new BifastClient(this.config);
+        String configFilePath = pathPropertiesBifast.getPathProp() + (pathPropertiesBifast.getPathProp().endsWith("/") || pathPropertiesBifast.getPathProp().endsWith("\\") ? "" : File.separator) + pathPropertiesBifast.getPropName() + ".properties";
+        this.configT24 = T24Config.fromProperties(configFilePath);
+        this.numThread = config.getNumThread();
+        this.t24Client = new T24Client(this.configT24);
+    }
+
+
+    // 2026-08-04] Factory method untuk membuat dedicated instance ServiceMariaDb (1 koneksi DB terisolasi per Worker Thread)
+    private ServiceMariaDb createMariaDbInstance() {
+        if (this.pathProp == null || this.propName == null) {
+            MainCHK.tulisLog("[ERROR][2026-08-12] pathProp atau propName null saat createMariaDbInstance! Using default fallback.");
+            return new ServiceMariaDb(config.getPathPropertiesBifast().getPathProp(), config.getPathPropertiesBifast().getPropName());
+        }
+        return new ServiceMariaDb(this.pathProp, this.propName);
+    }
+
+    // [2026-08-04] Multi-Threading dengan 3 Dedicated Worker Threads & 3 Instance ServiceMariaDb Terpisah.
+    public String paymentBifast(List<SpanSp2dStageIn> processData) {
         if (processData == null || processData.isEmpty()) {
             MainCHK.tulisLog("Tidak ada data BI-FAST untuk diproses.");
             return "00";
         }
 
-        int numThreads = 3;
+        int numThreads = this.numThread;
         int totalData = processData.size();
+        long startTime = System.currentTimeMillis();
+
         MainCHK.tulisLog("[MULTI-THREAD] Memulai pemrosesan " + totalData + " data BI-FAST dengan " + numThreads + " Dedicated Worker Threads (1 DB Conn/Thread)...");
+
 
         // Fetch mapping awal menggunakan koneksi sementara
         Map<String, BifastRcMapping> mappingRcAe;
@@ -84,11 +100,26 @@ public class ProcessBifast {
 
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
+        //  Graceful Shutdown Hook untuk memastikan worker thread aktif selesai jika JVM menerima signal (SIGTERM/SIGINT)
+        Thread shutdownHook = new Thread(() -> {
+            if (!executor.isTerminated()) {
+                MainCHK.tulisLog("[SHUTDOWN-HOOK] Signal shutdown terdeteksi! Menunggu worker threads menyelesaikan transaksi aktif...");
+                executor.shutdown();
+                try {
+                    if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+                        executor.shutdownNow();
+                    }
+                } catch (InterruptedException e) {
+                    executor.shutdownNow();
+                }
+            }
+        });
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
+
         for (int i = 1; i <= numThreads; i++) {
             final int threadId = i;
             executor.submit(() -> {
                 MainCHK.tulisLog("[WORKER-" + threadId + "] Worker thread dimulai (Membuka koneksi MariaDB dedicated)...");
-                // [2026-08-04] Setiap worker thread mengelola instance ServiceMariaDb sendiri (Terisolasi)
                 ServiceMariaDb threadMariaDb = createMariaDbInstance();
                 try {
                     SpanSp2dStageIn item;
@@ -112,15 +143,25 @@ public class ProcessBifast {
         try {
             executor.awaitTermination(2, TimeUnit.HOURS);
         } catch (InterruptedException e) {
-            MainCHK.tulisLog("[MULTI-THREAD] Interrupted saat menunggu worker threads: " + e.getMessage());
+            MainCHK.tulisLog("Error:updated saat menunggu worker threads: " + e.getMessage());
             Thread.currentThread().interrupt();
+        } finally {
+            // Unregister shutdown hook jika proses selesai dengan normal
+            try { Runtime.getRuntime().removeShutdownHook(shutdownHook); } catch (Exception e) {}
         }
 
-        MainCHK.tulisLog("[MULTI-THREAD] Selesai memproses seluruh " + totalData + " data BI-FAST.");
+        // [IMPROVEMENT][2026-08-11] Cetak Operational Summary Metrics ke Log
+        long duration = System.currentTimeMillis() - startTime;
+        MainCHK.tulisLog("=======================================================");
+        MainCHK.tulisLog("[SUMMARY][2026-08-11] BI-FAST BATCH PROCESSING COMPLETED");
+        MainCHK.tulisLog(" Total Processed   : " + totalData);
+        MainCHK.tulisLog(" Total Duration    : " + duration + " ms (" + String.format("%.2f", duration / 1000.0) + " s)");
+        MainCHK.tulisLog("=======================================================");
+
         return "00";
     }
 
-    // [NEW][2026-08-04] Ekstraksi pemrosesan single item dengan instance mariaDb dedicated per-thread (Tanpa Synchronized)
+    //  Ekstraksi pemrosesan single item dengan instance mariaDb dedicated per-thread (Tanpa Synchronized)
     public void processSingleItem(SpanSp2dStageIn item, Map<String, BifastRcMapping> mappingRcAe, ServiceMariaDb mariaDb) {
         System.out.println("========================================");
         System.out.println("Processing : " + item.getBeneficiaryAccount());
@@ -129,41 +170,35 @@ public class ProcessBifast {
         AccountInquiryRequest accountInquiryRequest = buildAccountInquiryRequest(item);
         AccountInquiryResponse accountInquiryResponse = null;
 
-        // [FIX][2026-07-31] GAP 1: Wrap call AE dengan try-catch ApiClientException.
+        try {
+            accountInquiryRequest.setBankCode(mariaDb.getBankCode(item.getBeneficiaryBankCode()));
+        } catch (SQLException e) {
+            MainCHK.tulisLog("Gagal saat mapping bank code untuk document number :" + item.getDocumentNumber());
+            return;
+        }
+
+
+        //  Wrap call AE dengan try-catch ApiClientException.
         try {
             accountInquiryResponse = client.accountInquiry(accountInquiryRequest);
         } catch (ApiClientException aeEx) {
             if (aeEx.isNetworkTimeout()) {
-                MainCHK.tulisLog("[GAP1] Timeout saat Account Inquiry (Skenario 6) untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
+                MainCHK.tulisLog(" Timeout saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
                 try {
                     mariaDb.failedProcessBifast(item, "51");
                 } catch (SQLException sqlEx) {
                     MainCHK.tulisLog("Error update esb_response_code saat AE timeout: " + sqlEx.getMessage());
                 }
             } else {
-                MainCHK.tulisLog("[GAP1] API Error (non-timeout) saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
-                try {
-                    mariaDb.failedProcessBifast(item, "ERR_HTTP");
-                } catch (SQLException sqlEx) {
-                    MainCHK.tulisLog("Error update esb_response_code saat AE error: " + sqlEx.getMessage());
-                }
+                MainCHK.tulisLog(" API Error (non-timeout) saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
             }
             return;
         }
 
-        // [FIX][2026-07-31] GAP 1: Null-check setelah AE call (safety net)
-        if (accountInquiryResponse == null) {
-            MainCHK.tulisLog("[GAP1] accountInquiryResponse null setelah call AE untuk doc: " + item.getDocumentNumber());
-            try {
-                mariaDb.failedProcessBifast(item, "ERR_NULL");
-            } catch (SQLException sqlEx) {
-                MainCHK.tulisLog("Error update status: " + sqlEx.getMessage());
-            }
-            return;
-        }
+        String responseCode = Utillity.safe(accountInquiryResponse.getResponseCode());
 
         boolean isAccountValid = accountInquiryResponse != null && accountInquiryResponse.isSuccess();
-        String responseCode = Utillity.safe(accountInquiryResponse.getResponseCode());
+
         boolean isNameMatched = isAccountValid 
                 && item.getBeneficiaryName() != null 
                 && accountInquiryResponse.getCreditorName() != null 
@@ -171,6 +206,7 @@ public class ProcessBifast {
 
         boolean accountNoutFound = false;
         boolean beneficiaryBankIsnotAvailable = false;
+
         String mappingRcSpan = "";
 
         if (accountInquiryResponse.getResponseCode().equals("25")) {
@@ -180,29 +216,35 @@ public class ProcessBifast {
                 beneficiaryBankIsnotAvailable = isRc25ForBankMaintanance(Utillity.safe(accountInquiryResponse.getResponseMessage()));
             }
             mappingRcSpan = getMappingRc25(mappingRcAe);
+            MainCHK.tulisLog("Mapping RC : "+mappingRcSpan);
+            MainCHK.tulisLog("Boolean :"+accountNoutFound);
+            
         }
 
+        // space logic untuk name checking advanced
+
         boolean isReturCode = accountNoutFound || "78".equals(responseCode) || (isAccountValid && !isNameMatched);
-        boolean isFallbackSkn = "500".equals(responseCode);
+
+        MainCHK.tulisLog("Boolean 2 :"+isReturCode);
+
+        boolean isFallbackSkn = "99".equals(responseCode);
 
         try {
             MainCHK.tulisLog("Proses Generate Posting");
-            mariaDb.updateSp2dstageinBo2(item);
-            mariaDb.updateSp2dUploaded(item);
+            mariaDb.updateSp2dstagein(item);
         } catch (SQLException e) {
             MainCHK.tulisLog("Error saat update status pst pada table stage in dan uploaded " + e.getMessage());
         }
 
-        MainCHK.tulisLog("Status Ae " + accountInquiryResponse.getResponseCode());
+        MainCHK.tulisLog("Account Inquiry Rsponse Code :  " + accountInquiryResponse.getResponseCode());
 
         // Case 1 : Ae dan ct sukses
         if (accountInquiryResponse.isSuccess() && isAccountValid) {
-        
             executeCreditTransferFlow(item, mariaDb);
         }
         // case 2 : AE retur 
         else if (isReturCode) {
-            MainCHK.tulisLog("Proses Retur");
+            MainCHK.tulisLog("Proses Retur Validasi Account Inquiry dengan response code : "+ accountInquiryResponse.getResponseCode());
             executeAccountInquiryReturFlow(item, accountInquiryResponse, mariaDb);
         }
         else if (beneficiaryBankIsnotAvailable) {
@@ -225,41 +267,40 @@ public class ProcessBifast {
     private void executeCreditTransferFlow(SpanSp2dStageIn item, ServiceMariaDb mariaDb) {
         MainCHK.tulisLog("Initiate Proses Credit Transfer");
         CreditTransferRequest ctRequest = buildCreditTransferRequest(item);
+
+        try {
+            ctRequest.setBankCode(mariaDb.getBankCode(item.getBeneficiaryBankCode()));
+        } catch (SQLException e) {
+            MainCHK.tulisLog("Gagal saat mapping bank code untuk document number :" + item.getDocumentNumber());
+            return;
+        }
         try {
             CreditTransferResponse ctResponse = null;
             try {
                 ctResponse = client.creditTransfer(ctRequest);
             } catch (ApiClientException e) {
                 if (e.isNetworkTimeout()) {
-                    MainCHK.tulisLog("[GAP6] Network timeout saat Credit Transfer untuk doc: " + item.getDocumentNumber() + " - " + e.getMessage());
+                    MainCHK.tulisLog("Network timeout saat Credit Transfer untuk doc: " + item.getDocumentNumber() + " - " + e.getMessage());
                     ctResponse = new CreditTransferResponse();
                     ctResponse.setResponseCode("51");
                     handleCreditTransferTimeout(item, ctResponse, mariaDb);
                     return;
                 } else {
                     MainCHK.tulisLog("API Client Error saat Credit Transfer: " + e.getMessage());
-                    try {
-                        mariaDb.failedProcessBifast(item, "ERR_HTTP");
-                    } catch (SQLException sqlEx) {
-                        MainCHK.tulisLog("Error update status error API: " + sqlEx.getMessage());
-                    }
                     return;
                 }
             }
-
             if (ctResponse == null) {
-                MainCHK.tulisLog("ctResponse null setelah call CT untuk doc: " + item.getDocumentNumber());
+                MainCHK.tulisLog("ct Response null setelah call CT untuk doc: " + item.getDocumentNumber());
                 return;
             }
 
-            MainCHK.tulisLog("Proses CT selesai dengan Response Code: " + ctResponse.getResponseCode());
+            MainCHK.tulisLog("Proses ct selesai dengan Response Code : " + ctResponse.getResponseCode());
           
             if (ctResponse.isSuccess()) {
-                ctResponse.setReferenceId(("FTDUMMY_HARUSNYA INI DARI ESB"));
                 mariaDb.postingMessageAfterCt(item, ctResponse);
-                mariaDb.prosesAck(item.getDocumentNumber());
+                mariaDb.prosesAck(item);
             } else {
-                MainCHK.tulisLog("HADUHHHHHH");
                 handleCreditTransferFailure(item, ctResponse, mariaDb);
             }
         } catch (Exception e) {
@@ -298,7 +339,7 @@ public class ProcessBifast {
             executeTransactionRetur(item, ctResponse, mariaDb);
         }
         else if (isBeneficiaryDormant) {
-            MainCHK.tulisLog("[GAP2] Failed CT: Account Inactive/Dormant (RC 78) untuk doc: " + item.getDocumentNumber() + ". Melakukan proses retur FT.");
+            MainCHK.tulisLog("Failed CT: Account Inactive/Dormant (RC 78) untuk doc: " + item.getDocumentNumber() + ". Melakukan proses retur FT.");
             executeTransactionRetur(item, ctResponse, mariaDb);
         }
     }
@@ -307,21 +348,23 @@ public class ProcessBifast {
         MainCHK.tulisLog("Account Inquiry retur process initiated");
 
         String debitAccount = Utillity.safe(item.getAgentBankAccountNumber());
-        String creditAccount = "IDR1717700010001";
-        String agentBankAccountName = "";
+        String creditAccount="";
 
         String transactionType = Utillity.getTransactionType(item, mariaDb.getSpanconfig());
 
-        switch (transactionType) {
+        switch (transactionType.trim().toUpperCase()) {
             case "BO2":
-                agentBankAccountName = "RPKBUN GAJI BSI";
+               creditAccount  = mariaDb.getSpanconfig().getAcctRrRpkbunGaji();
                 break;
             case "BO1":
-                agentBankAccountName = "RPKBUN NON GAJI BSI";
+                creditAccount = mariaDb.getSpanconfig().getAcctRrRpkbunNonGaji();
                 break;
+            default:
+                creditAccount = mariaDb.getSpanconfig().getAcctRrReksusSbsn();
         }
 
         FundsTransferSoapResponse resp = ProsesRetur.returProcess(item, debitAccount, creditAccount, transactionType);
+        Map<String, BifastRcMapping> map = mariaDb.getBifastMappingRcAe();
 
         if (resp != null && resp.isSuccess()) {
     
@@ -335,7 +378,6 @@ public class ProcessBifast {
                 SpanSp2dStageIn dataRetur = cloneItemForRetur(item);
                 dataRetur.setBeneficiaryAccount(creditAccount);
                 dataRetur.setAgentBankAccountNumber(debitAccount);
-                dataRetur.setAgentBankAccountName(agentBankAccountName);
 
                 String rcSpan = map.get(inquiryResponse.getResponseCode()).bifast_rc;
 
@@ -343,13 +385,10 @@ public class ProcessBifast {
                     rcSpan =getMappingRc25(map);
                  }
 
-                 MainCHK.tulisLog("Rc : "+rcSpan);
-                 
-    
                 mariaDb.insertReturDatainPostingTable(dataRetur, resp);
-            
                 mariaDb.updateSp2dstageinAEerror(item , rcSpan , inquiryResponse.getResponseCode());
                 mariaDb.prosesAckRetur(item.getDocumentNumber());
+
             } catch (Exception e) {
                 MainCHK.tulisLog("Error insert data retur AE pada tabel posting: " + e.getMessage());
             }
@@ -372,9 +411,18 @@ public class ProcessBifast {
         inquiryRequest.setCategoryPurposeCode("01");
         inquiryRequest.setInterbankSettlementAmount(item.getAmount().toString());
         inquiryRequest.setChargeBearerCode("DEBT");
-        inquiryRequest.setBankCode("BBBAIDJA");
         inquiryRequest.setCreditorAccountId(item.getBeneficiaryAccount());
         return inquiryRequest;
+    }
+
+    private PaymenStatusRequest buildPaymentStatusRequest(SpanSp2dStageIn item){
+       PaymenStatusRequest paymenStatusRequest = new PaymenStatusRequest();
+        paymenStatusRequest.setRequestId(RequestIdGenerator.generateRequestID());
+        paymenStatusRequest.setChannelType("02");
+        paymenStatusRequest.setBicSendSys("BSMDIDJA");
+        paymenStatusRequest.setOriginator("O");
+        paymenStatusRequest.setEndToEndId("20260729BSMDIDJA010O0250004315");
+        return paymenStatusRequest;
     }
 
     private CreditTransferRequest buildCreditTransferRequest(SpanSp2dStageIn item) {
@@ -385,13 +433,12 @@ public class ProcessBifast {
         ctRequest.setCategoryPurposeCode("03");
         ctRequest.setInterbankSettlementAmount(item.getAmount().toString());
         ctRequest.setChargeBearerCode("DEBT");
-        ctRequest.setDebitorAccountId("7927927928");
+        ctRequest.setDebitorAccountId(item.getAgentBankAccountNumber());
         ctRequest.setDebitorAccountType("OTHR");
-        ctRequest.setCreditorAccountId("4124639862");
+        ctRequest.setCreditorAccountId(item.getBeneficiaryAccount());
         ctRequest.setCreditorAccountType("SVGS");
-        ctRequest.setCreditorName("XUSER XREMIT XSATU DUA");
-        ctRequest.setBankCode("BBBAIDJA");
-        ctRequest.setPaymentInformation("Cek ombak BIfast");
+        ctRequest.setCreditorName(item.getBeneficiaryName());
+        ctRequest.setPaymentInformation("Testing Bifast End To End");
         ctRequest.setDebitorType("02");
         ctRequest.setDebitorResidentStatus("01");
         ctRequest.setDebitorTownName("");
@@ -443,14 +490,7 @@ public class ProcessBifast {
         try {
             MainCHK.tulisLog("Memproses Status Payment Request  untuk doc: " + item.getDocumentNumber() + " [code=" + cTransferResponse.getResponseCode() + "]");
 
-            PaymenStatusRequest tiRequest = new PaymenStatusRequest();
-            tiRequest.setRequestId(RequestIdGenerator.generateRequestID());
-            tiRequest.setChannelType("02");
-            tiRequest.setBicSendSys("BSMDIDJA");
-            tiRequest.setBicRecvSys("FASTIDJA");
-            tiRequest.setOriginator("O");
-            tiRequest.setEndToEndId("20260729BSMDIDJA010O0250004315");
-
+            PaymenStatusRequest tiRequest = buildPaymentStatusRequest(item);
             PaymentStatusResponse tiResponse = null;
 
             try {
@@ -475,7 +515,7 @@ public class ProcessBifast {
                         ctResponse.setResponseCode("000");
                         ctResponse.setReferenceId(cTransferResponse.getReferenceId());
                         mariaDb.postingMessageAfterCt(item, ctResponse);
-                        mariaDb.prosesAck(item.getDocumentNumber());
+                        mariaDb.prosesAck(item);
                     } catch (SQLException e) {
                         MainCHK.tulisLog("Error posting/ACK setelah get status sukses: " + e.getMessage());
                     }
@@ -490,7 +530,7 @@ public class ProcessBifast {
                         ctResponse.setResponseCode("000");
                         ctResponse.setReferenceId("FT DUMMY TOBE NYA HARUS DARI ESB ");
                         mariaDb.postingMessageAfterCt(item, ctResponse);
-                        mariaDb.prosesAck(item.getDocumentNumber());
+                        mariaDb.prosesAck(item);
                         } else {
                         mariaDb.initiateRetryCheckStatus(item);
                         }
@@ -523,7 +563,7 @@ public class ProcessBifast {
                         ctResponse.setResponseCode("000");
                         ctResponse.setReferenceId("FT DUMMY TOBE NYA HARUS DARI ESB ");
                         mariaDb.postingMessageAfterCt(item, ctResponse);
-                        mariaDb.prosesAck(item.getDocumentNumber());
+                        mariaDb.prosesAck(item);
                         }else {
                         mariaDb.initiateRetryCheckStatus(item);
                         }
@@ -540,8 +580,8 @@ public class ProcessBifast {
     }
 
     private void executeTransactionRetur(SpanSp2dStageIn item, CreditTransferResponse ctResponse, ServiceMariaDb mariaDb) throws SQLException {
-        MainCHK.tulisLog("Execute Proses retur menggunakan Service FT");
-        String debitAccount = "IDR1717700010001";
+        MainCHK.tulisLog("Execute retur process");
+        String debitAccount = mariaDb.getSpanconfig().getAcctIaKewajibanBifast();
         String creditAccount;
         String transactionType = Utillity.getTransactionType(item, mariaDb.getSpanconfig());
 
@@ -565,12 +605,17 @@ public class ProcessBifast {
 
             dataRetur.setBeneficiaryAccount(creditAccount);
             dataRetur.setAgentBankAccountNumber(debitAccount);
+
+            // confirm value nya apa
             dataRetur.setAgentBankAccountName("IA KEWAJIBAN BIFAST");
             dataRetur.setDescription("Retur Transaksi");
 
             mariaDb.insertPostingCtFailure(item, ctResponse);
             mariaDb.insertReturDatainPostingTable(dataRetur, resp);
+            MainCHK.tulisLog("Data Status : " +item.getStatus());
             mariaDb.prosesAckRetur(item.getDocumentNumber());
+
+            
 
             switch (item.getStatus().trim().toUpperCase()) {
                  case "RRS-000":
@@ -578,10 +623,12 @@ public class ProcessBifast {
                      break; 
                 case "RMR-000":
                      mariaDb.finalizeSuccessRecordsAfterReturManual(item);
-                     break;   
+                     break;
+                case "PST-000":
+                     mariaDb.finalizeSuccessRecords(item);
+                     break;
                  default:
                      mariaDb.finalizeSuccessRecordsAfterGetStatus(item);
-                     break;
              }
             
         } else {
@@ -608,10 +655,10 @@ public class ProcessBifast {
     }
 
     private Boolean isRc25ForAccountnotFound(String responseMessage) {
-        String safeMessage = (responseMessage != null) ? responseMessage.toUpperCase() : "";
+        String safeMessage = (responseMessage != null) ? responseMessage : "";
         if (safeMessage.contains("U136")) {
             return true;
-        }else if (safeMessage.contains("53")){
+        }else if (safeMessage.contains("53 Saving Account Not Registered")){
             return true;
         }
         return false;
@@ -619,7 +666,7 @@ public class ProcessBifast {
 
     public String getMappingRc25(Map<String, BifastRcMapping> mapParam) {
         String responseMessage = Utillity.safe(mapParam.get("25").bifast_description);
-        if (responseMessage.contains("U136")) {
+        if (responseMessage.contains("U136") || responseMessage.contains("53 Saving Account Not Registered")) {
             return mapParam.get("25").span_rc;
         }
         return mapParam.get("25U").span_rc;
@@ -753,7 +800,7 @@ public class ProcessBifast {
             return;
         }
 
-        int numThreads = 3;
+        int numThreads = this.numThread;
         int totalData=processData.size();
         
         Queue<SpanSp2dStageIn> taskQueue = new ConcurrentLinkedQueue<>(processData);

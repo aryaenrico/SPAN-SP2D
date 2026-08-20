@@ -1,5 +1,6 @@
 package com.bsi.config;
 
+import com.bsi.entity.span.PathPropertiesBifast;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -9,20 +10,17 @@ import java.util.Properties;
 
 public class BifastConfig {
     private String apiKey;
-    private String baseUrl;
     private Integer connectTimeoutms;
     private Integer readTimeoutms;
     private String endpointCT;
     private String endpointAe;
     private String endpointTi;
+    private PathPropertiesBifast pathPropertiesBifast;
+    private int numThread;
 
-    //private static String DEFAULT_PROPERTIES = "bifast.properties";
-    
-    
     public void setendpointTi (String endpointTI){
     this.endpointTi = endpointTI;
     }
-
     public String getEndpointTi(){
         return this.endpointTi;
     }
@@ -34,30 +32,23 @@ public class BifastConfig {
         return this.apiKey;
     }
 
-    public String getBaseurl(){
-        return this.baseUrl;
-    }
-
     public void setendpointCT(String endpointCT){
        this.endpointCT = endpointCT;
     }
-
-     public String getEndpointCT(){
+    public String getEndpointCT(){
         return this.endpointCT;
     }
 
     public void setendpointAe (String endpointAE){
         this.endpointAe = endpointAE;
     }
-
-     public String getEndpointAe(){
+    public String getEndpointAe(){
         return this.endpointAe;
     }
 
     public void setConnectTimeoutms(String timeout){
         this.connectTimeoutms = Integer.parseInt(timeout);
     }
-
     public Integer getConnectTimeoutMs(){
         return this.connectTimeoutms;
     }
@@ -65,12 +56,26 @@ public class BifastConfig {
     public void setreadTimeoutms(String timeout){
         this.readTimeoutms = Integer.parseInt(timeout);
     }
-
     public Integer getreadTimeoutms(){
         return this.readTimeoutms;
     }
 
-   
+    public void setPathPropertiesBifast(PathPropertiesBifast pathPropertiesBifast){
+        this.pathPropertiesBifast  = pathPropertiesBifast;
+    }
+
+    public PathPropertiesBifast getPathPropertiesBifast(){
+        return  this.pathPropertiesBifast;
+    }
+
+    private void setNumThread(int numThread){
+        this.numThread = numThread;
+    }
+
+    public int getNumThread (){
+        return  this.numThread;
+    }
+
 
     public static BifastConfig fromProperties(String location){
        Properties props = new Properties();
@@ -108,6 +113,7 @@ public class BifastConfig {
          cfg.setConnectTimeoutms(trimToNull(prop.getProperty("bifast.connectTimeoutMs")));
          cfg.setreadTimeoutms(trimToNull(prop.getProperty("bifast.readTimeoutMs")));
          cfg.setendpointTi(trimToNull(prop.getProperty("bifast.paymentRequest.endpointUrl")));
+         cfg.setNumThread(Integer.parseInt(trimToNull(prop.getProperty("bifast.thread"))));
          return cfg;
     }
 

@@ -26,14 +26,15 @@ public class GenerateAckOut {
     String returnCode;
     String description;
 
-    public String generateAckFile(Connection conn, SpanConfig config,List<SpanSp2dPosting> rows, Map<String, ReturnStatusAck> statusAckMap) throws IOException {
+    public String generateAckFile(Connection conn, SpanConfig config, List<SpanSp2dPosting> rows, Map<String, ReturnStatusAck> statusAckMap) throws IOException {
         
         String creationDateTime = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
         String fileName = config.getBankCode() + "_SP2D_FA_" + creationDateTime + ".out";
-        String outputDir = "C:/Users/ven.arya/Downloads/Project/2026/SPAN/Custom Handler/put";
-        //String outputDir = config.getPathBo2spanHome() + config.getPathSpanAcknowledgePut();
+        //String outputDir = "C:/Users/ven.arya/Downloads/Project/2026/SPAN/Custom Handler/put";
+        String outputDir = config.getPathBo2spanHome() + config.getPathSpanAcknowledgePut();
         String outputPath = outputDir + File.separator + fileName;
         String currentDate =new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+        
         
     
         new File(outputDir).mkdirs();
@@ -89,8 +90,8 @@ public class GenerateAckOut {
         File source = new File(outputFilePath);
         if (!source.exists()) return;
 
-        //String archiveDir  = ctx.getPathBo2spanHome() + ctx.getpathSpanAcknowledgeArchive();
-        String   archiveDir  ="C:/Users/ven.arya/Downloads/Project/2026/SPAN/Custom Handler/archive";
+        String archiveDir  = ctx.getPathBo2spanHome() + ctx.getpathSpanAcknowledgeArchive();
+        //String   archiveDir  ="C:/Users/ven.arya/Downloads/Project/2026/SPAN/Custom Handler/archive";
         String  archivePath = archiveDir + File.separator + ctx.getBankCode()+ "_SP2D_FA_" + creationDateTime + ".out";
 
         new File(archiveDir).mkdirs();
@@ -99,11 +100,35 @@ public class GenerateAckOut {
 
     public  void updateFlagAck(Connection conn, SpanConfig ctx , SpanSp2dPosting data) throws SQLException {
         String sql =Utillity.updateFlagAckTablePosting();
+        String transactionType = Utillity.getTransactionTypeForAck(data,ctx);
+
+        //USE FOR DYNAMIC Account retur
+        String paramRR1 ="";
+        String paramRR2 ="";
+
+        //use for include account
+        String paramInclude1="";
+        String paramInclude2="";
+
+        switch (transactionType) {
+            case "BO2":
+                paramRR1 = ctx.getAcctRrRpkbunGaji();
+                paramRR2 = ctx.getAcctRrReksusSbsn();
+                paramInclude1 = ctx.getAcctRpkbunGaji();
+                paramInclude2 = ctx.getAcctRrRpkbunGaji();
+                break;
+            case "BO1":
+                paramRR1 = ctx.getAcctRrRpkbunNonGaji();
+                paramRR2 = ctx.getAcctRrReksusSbsn();
+                paramInclude1 =ctx.getAcctRrRpkbunNonGaji();
+                paramInclude2 = ctx.getAcctRrRpkbunNonGaji();
+        }
+
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, ctx.getAcctRrRpkbunGaji());
-            ps.setString(2, ctx.getAcctRrReksusSbsn());
-            ps.setString(3, ctx.getAcctRpkbunGaji());
-            ps.setString(4, ctx.getAcctRrRpkbunGaji());
+            ps.setString(1, paramRR1);
+            ps.setString(2, paramRR2);
+            ps.setString(3, paramInclude1);
+            ps.setString(4, paramInclude2);
             ps.setString(5, data.documentNumber);
             ps.executeUpdate();
         }

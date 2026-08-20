@@ -70,9 +70,10 @@ public class Utillity {
                 case "RTGS_CODE":            config.setRtgsCode(value);break;
                 case "APP_DATE":             config.setAppDate(value);break;
                 case "APP_DATE_REALTIME":    config.setAppDateRealtime(value);break;
-                case "ACCT_RPKBUN_NON_GAJI" : config.setAcctRrRpkbunNonGaji(value);break;
-                case "ACCT_RR_RPKBUN_NON_GAJI": config.setAcctRrRpkbunGaji(value);break; 
-                case "X_ACCT_RR_REKSUS_SBSN" :config.setAcctRrReksusSbsn(value);break;   
+                case "ACCT_RPKBUN_NON_GAJI" : config.setAcctRpkbunNonGaji(value);break;
+                case "ACCT_RR_RPKBUN_NON_GAJI": config.setAcctRrRpkbunNonGaji(value);break;
+                case "X_ACCT_RR_REKSUS_SBSN" :config.setAcctRrReksusSbsn(value);break;
+                case "ACCT_IA_KEWAJIBAN_BIFAST": config.setAcctIaKewajibanBifats(value);break;
             }
         }
     }
@@ -375,6 +376,19 @@ public class Utillity {
          return result;
      }
 
+    public static String getTransactionTypeForAck(SpanSp2dPosting spanSp2dStageIn , SpanConfig config){
+        String debitAccount = spanSp2dStageIn.agentBankAccountNumber;
+        String result="";
+        if (safe(debitAccount).equals(config.getAcctRpkbunGaji())){
+            result = "BO2";
+        } else if (safe(debitAccount).equals(config.getAcctRpkbunNonGaji())){
+            result = "BO1";
+        } else {
+            result = "REKSUS";
+        }
+        return result;
+    }
+
    public static String finalizeSuccesRecord(String sourceAccount , String sourceRetur ){
     
       return  "UPDATE span_sp2d_stage_in SET date_posting = ?, status = 'FIN-000' " +
@@ -384,4 +398,8 @@ public class Utillity {
                  "AND documentnumber = ? ";
    } 
 
+
+   public static String getBankCode(){
+        return "SELECT participant FROM bank_code_mapping WHERE account_code = ? AND status = 'Active' ";
+   }
 }

@@ -24,8 +24,9 @@ public class MainCHKOra {
             //debug only
             tulisLog("Debugging...");
 //            oracleDb = new OracleDb("/Users/choirulrahmadan/BSI/SpanPlay/conf/", "bo2span");
-            //chkDS("/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/bo2span.properties",
-                    "/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/525451000990_SP2D_O_20220921_130509_073.xml");
+            //chkDS(
+            // "/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/bo2span.properties",
+                  //  "/Users/choirulrahmadan/BSI/SP2D_CHECK_NEGATIVE_AMOUNT/tesDs/525451000990_SP2D_O_20220921_130509_073.xml");
             System.exit(0);
         } else if (args.length < 3) {
             tulisLog("Param tidak lengkap!");
