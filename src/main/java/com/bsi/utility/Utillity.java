@@ -402,4 +402,23 @@ public class Utillity {
    public static String getBankCode(){
         return "SELECT participant FROM bank_code_mapping WHERE account_code = ? AND status = 'Active' ";
    }
+
+   public static String findApproveData(){
+    return " SELECT beneficiary_account,stagein_beneficiary_name,inquiry_beneficiary_name,approval_status " +
+           " FROM span_sp2d_bifast_name_checking WHERE beneficiary_account = ? " +  
+           " AND stagein_beneficiary_name = ? AND inquiry_beneficiary_name = ? LIMIT 1";
+   }
+
+   public static String normalizeName(String name) {
+     if (name == null) {
+        return "";
+      }
+      return name.trim().replaceAll("\\s+", " ").toUpperCase();
+    }
+
+    public static String insertAuditTrail(){
+        return "INSERT INTO span_sp2d_bifast_audit_trail "+
+               "(document_number,activity_id,user_id,user_email,old_value,new_value,created_at) "+
+               " VALUES (?,?,?,?,?,?,?)";
+    }
 }

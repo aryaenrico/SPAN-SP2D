@@ -1,7 +1,6 @@
 package com.bsi.service;
 
 import java.io.File;
-import java.sql.SQLException;
 import java.util.List;
 import com.bsi.MainCHK;
 import com.bsi.config.BifastConfig;

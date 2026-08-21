@@ -1675,7 +1675,59 @@ public class ServiceMariaDb {
         }
         return result;
    }
+   
+   public String findDataOnNameChecking (SpanSp2dStageIn item , String inquiryNameResponse) throws SQLException{
+    String sql = Utillity.findApproveData();
+    String result =null;
+    try (PreparedStatement ps = conn.prepareStatement(sql)){
+        ps.setString(1, item.getBeneficiaryAccount());
+        ps.setString(2, Utillity.normalizeName(item.getBeneficiaryName()));
+        ps.setString(3, Utillity.normalizeName(inquiryNameResponse));
+     try (ResultSet rs = ps.executeQuery()){
+        if (rs.next()){
+             result = rs.getString("approval_status");
+        }
+     }
+    }
+        return result;
+   
+   }
+
+   public void insertDataForNameChecking(SpanSp2dStageIn item,String inquiryNameResponse) throws SQLException{
+     String sql = " INSERT INTO span_sp2d_bifast_name_checking " +  
+                  " (document_number,beneficiary_account,stagein_beneficiary_name,inquiry_beneficiary_name) " +
+                  " VALUES (?,?,?,?)";
+
+     try(PreparedStatement ps = conn.prepareStatement(sql) ){
+        ps.setString(1, item.getDocumentNumber());
+        ps.setString(2, item.getBeneficiaryAccount());
+        ps.setString(3, Utillity.normalizeName(item.getBeneficiaryName()));
+        ps.setString(4, Utillity.normalizeName(inquiryNameResponse));
+       
+        
+        int row = ps.executeUpdate();
+        if (row > 0){
+            MainCHK.tulisLog("Proses insert data ke tabel neme checking berhasil untuk norek :" +item.getBeneficiaryAccount() + "untuk document number : "+ item.getDocumentNumber());
+        }else{
+             MainCHK.tulisLog("Query Insert : "+ps);
+        }
+     }         
+
+   }
 
 
+   public void insertAuditTrailFallbackSkn(SpanSp2dStageIn item)throws SQLException{
+    String sql  = Utillity.insertAuditTrail();
+    try(PreparedStatement ps = conn.prepareStatement(sql)){
+        ps.setString(1, item.getDocumentNumber());
+        ps.setInt(2, 1);
+        ps.setInt(3, 0);
+        ps.setString(4, "SYSTEM");
+        ps.setString(5, "status:PST-000|payment_method:5");
+        ps.setString(6, "status:UPL-000|payment_method:2");
+        ps.setTimestamp(7, new Timestamp(System.currentTimeMillis()));
 
+        ps.executeUpdate();
+    }
+   }
 }

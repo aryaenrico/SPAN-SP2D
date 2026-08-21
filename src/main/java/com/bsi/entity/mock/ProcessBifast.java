@@ -216,18 +216,40 @@ public class ProcessBifast {
                 beneficiaryBankIsnotAvailable = isRc25ForBankMaintanance(Utillity.safe(accountInquiryResponse.getResponseMessage()));
             }
             mappingRcSpan = getMappingRc25(mappingRcAe);
-            MainCHK.tulisLog("Mapping RC : "+mappingRcSpan);
-            MainCHK.tulisLog("Boolean :"+accountNoutFound);
-            
+        }
+        
+
+        boolean isReturCode = accountNoutFound || "78".equals(responseCode);
+
+        MainCHK.tulisLog("Status Name Checking : "+isNameMatched);
+        MainCHK.tulisLog("status on off logic :"+config.getFlagName());
+
+        boolean nameCheckingAdvanced = config.getFlagName() == 1; 
+       
+        // logic on/off name checking 
+        if (nameCheckingAdvanced){
+          String isDataFound = null;
+        try {
+          if(!isNameMatched){
+            isDataFound = mariaDb.findDataOnNameChecking(item, accountInquiryResponse.getCreditorName());
+            if (isDataFound != null){
+              if (isDataFound.trim().toUpperCase().equals("REJECT")){
+                 mariaDb.fallbackToSkn(item);
+                 mariaDb.insertAuditTrailFallbackSkn(item);
+                 return;
+              }                
+            }else {
+                mariaDb.insertDataForNameChecking(item,accountInquiryResponse.getCreditorName());
+                return;
+            }
+           } 
+        } catch (SQLException e){
+            MainCHK.tulisLog("Error saat name checking pada database :"+e.getMessage());
+        }
         }
 
-        // space logic untuk name checking advanced
 
-        boolean isReturCode = accountNoutFound || "78".equals(responseCode) || (isAccountValid && !isNameMatched);
-
-        MainCHK.tulisLog("Boolean 2 :"+isReturCode);
-
-        boolean isFallbackSkn = "99".equals(responseCode);
+         boolean isFallbackSkn = "99".equals(responseCode) || !isNameMatched;
 
         try {
             MainCHK.tulisLog("Proses Generate Posting");

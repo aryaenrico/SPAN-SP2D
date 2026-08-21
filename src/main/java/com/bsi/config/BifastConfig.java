@@ -17,6 +17,7 @@ public class BifastConfig {
     private String endpointTi;
     private PathPropertiesBifast pathPropertiesBifast;
     private int numThread;
+    private int flagName;
 
     public void setendpointTi (String endpointTI){
     this.endpointTi = endpointTI;
@@ -76,6 +77,13 @@ public class BifastConfig {
         return  this.numThread;
     }
 
+    private void setFlagName(int num){
+     this.flagName = num;
+    }
+    public int getFlagName(){
+        return this.flagName;
+    }
+
 
     public static BifastConfig fromProperties(String location){
        Properties props = new Properties();
@@ -114,6 +122,7 @@ public class BifastConfig {
          cfg.setreadTimeoutms(trimToNull(prop.getProperty("bifast.readTimeoutMs")));
          cfg.setendpointTi(trimToNull(prop.getProperty("bifast.paymentRequest.endpointUrl")));
          cfg.setNumThread(Integer.parseInt(trimToNull(prop.getProperty("bifast.thread"))));
+         cfg.setFlagName(Integer.parseInt(trimToNull(prop.getProperty("bifast.flag.name.check"))));
          return cfg;
     }
 
