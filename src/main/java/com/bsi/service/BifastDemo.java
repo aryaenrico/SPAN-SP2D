@@ -80,23 +80,9 @@ public class BifastDemo {
 
                     MainCHK.tulisLog("Proses posting transaction done..");
 
-/*
-
-                MainCHK.tulisLog("Running command proses retur ...");
-                    List<SpanSp2dStageIn> dataRrs = mariaDb.getDataBifastForSchedulerPurpose(mariaDb.statusForManualRetur);
-                      
-                    
-                    String configFilePath = pathPropertiesBifast.getPathProp() + (pathPropertiesBifast.getPathProp().endsWith("/") || pathPropertiesBifast.getPathProp().endsWith("\\") ? "" : File.separator) + pathPropertiesBifast.getPropName() + ".properties";
-                    MainCHK.tulisLog("[CONFIG] Loading BifastConfig from: " + configFilePath);
-
-                    BifastConfig config = BifastConfig.fromProperties(configFilePath);
-                    ProcessBifast processBifast = new ProcessBifast(config,pathPropertiesBifast);
-                    processBifast.prosesRetur(dataRrs);
-                     */
-                    }
-                        catch(Exception e){
-                            System.out.println(e.getMessage());
-                         }
-
+            }
+                catch(Exception e){
+                System.out.println(e.getMessage());
+            }
  }     
 }

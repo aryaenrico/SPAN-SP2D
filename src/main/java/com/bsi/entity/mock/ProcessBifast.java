@@ -184,6 +184,8 @@ public class ProcessBifast {
         } catch (ApiClientException aeEx) {
             if (aeEx.isNetworkTimeout()) {
                 MainCHK.tulisLog(" Timeout saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
+                //update log nya di sini 
+            
                 try {
                     mariaDb.failedProcessBifast(item, "51");
                 } catch (SQLException sqlEx) {
@@ -220,36 +222,7 @@ public class ProcessBifast {
         
 
         boolean isReturCode = accountNoutFound || "78".equals(responseCode);
-
-        MainCHK.tulisLog("Status Name Checking : "+isNameMatched);
-        MainCHK.tulisLog("status on off logic :"+config.getFlagName());
-
-        boolean nameCheckingAdvanced = config.getFlagName() == 1; 
-       
-        // logic on/off name checking 
-        if (nameCheckingAdvanced){
-          String isDataFound = null;
-        try {
-          if(!isNameMatched){
-            isDataFound = mariaDb.findDataOnNameChecking(item, accountInquiryResponse.getCreditorName());
-            if (isDataFound != null){
-              if (isDataFound.trim().toUpperCase().equals("REJECT")){
-                 mariaDb.fallbackToSkn(item);
-                 mariaDb.insertAuditTrailFallbackSkn(item);
-                 return;
-              }                
-            }else {
-                mariaDb.insertDataForNameChecking(item,accountInquiryResponse.getCreditorName());
-                return;
-            }
-           } 
-        } catch (SQLException e){
-            MainCHK.tulisLog("Error saat name checking pada database :"+e.getMessage());
-        }
-        }
-
-
-         boolean isFallbackSkn = "99".equals(responseCode) || !isNameMatched;
+        boolean isFallbackSkn = "99".equals(responseCode) || !isNameMatched;
 
         try {
             MainCHK.tulisLog("Proses Generate Posting");
@@ -710,7 +683,7 @@ public class ProcessBifast {
             return;
         }
 
-        int numThreads = 3;
+        int numThreads = this.numThread;
         int totalData=processData.size();
         
         Queue<SpanSp2dStageIn> taskQueue = new ConcurrentLinkedQueue<>(processData);
@@ -769,7 +742,7 @@ public class ProcessBifast {
             return;
         }
 
-        int numThreads = 3;
+        int numThreads = this.numThread;
         int totalData=processData.size();
         
         Queue<SpanSp2dStageIn> taskQueue = new ConcurrentLinkedQueue<>(processData);

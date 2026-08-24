@@ -9,6 +9,7 @@ import java.io.UncheckedIOException;
 import java.util.Properties;
 
 public class BifastConfig {
+    
     private String apiKey;
     private Integer connectTimeoutms;
     private Integer readTimeoutms;
