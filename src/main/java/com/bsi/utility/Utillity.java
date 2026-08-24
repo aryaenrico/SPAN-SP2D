@@ -7,6 +7,8 @@ import java.sql.SQLException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+
+import com.bsi.MainCHK;
 import com.bsi.config.SpanConfig;
 import com.bsi.entity.span.BifastRcMapping;
 import com.bsi.entity.span.ReturnStatusAck;
@@ -59,7 +61,9 @@ public class Utillity {
          
         while (rs.next()) {
             String name  = rs.getString("config_name");
+        
             String value = rs.getString("config_value");
+            
             
             if (name == null || value == null) continue;
             switch (name.trim().toUpperCase()) {
@@ -76,6 +80,7 @@ public class Utillity {
                 case "ACCT_IA_KEWAJIBAN_BIFAST": config.setAcctIaKewajibanBifats(value);break;
             }
         }
+        
     }
       return config;
    }
@@ -420,5 +425,22 @@ public class Utillity {
         return "INSERT INTO span_sp2d_bifast_audit_trail "+
                "(document_number,activity_id,user_id,user_email,old_value,new_value,created_at) "+
                " VALUES (?,?,?,?,?,?,?)";
+    }
+
+    public static String getDataBifastByDocumentNumber(){
+        return "SELECT document_number , end_to_end_id from sp2d_bifast_data "+
+               " where document_number = ? ";
+    }
+
+    public static String insertDataSp2dBifast(){
+        return "INSERT INTO sp2d_bifast_data "+
+               "(document_number) "+
+               " VALUES (?)";
+    }
+
+     public static String insertDataSp2dBifastCtTimeout(){
+        return "INSERT INTO sp2d_bifast_data "+
+               "(document_number,end_to_end_id) "+
+               " VALUES (?,?)";
     }
 }

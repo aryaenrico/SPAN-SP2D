@@ -177,25 +177,51 @@ public class ProcessBifast {
             return;
         }
 
-
-        //  Wrap call AE dengan try-catch ApiClientException.
+        //Wrap call AE dengan try-catch ApiClientException.
         try {
             accountInquiryResponse = client.accountInquiry(accountInquiryRequest);
         } catch (ApiClientException aeEx) {
-            if (aeEx.isNetworkTimeout()) {
-                MainCHK.tulisLog(" Timeout saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
-                //update log nya di sini 
-            
-                try {
-                    mariaDb.failedProcessBifast(item, "51");
-                } catch (SQLException sqlEx) {
-                    MainCHK.tulisLog("Error update esb_response_code saat AE timeout: " + sqlEx.getMessage());
+           if (aeEx.isNetworkTimeout()) {
+               // tidak ada response dalam rentang waktu yang disepakati)
+               MainCHK.tulisLog("Timeout saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
+           try {
+                String documentNumberOnTable = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
+                if (documentNumberOnTable == null){
+                    mariaDb.insertDataSp2dBfast(item);
                 }
-            } else {
-                MainCHK.tulisLog(" API Error (non-timeout) saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
-            }
-            return;
+                 mariaDb.handleAccountInquiryError(item, "68", mappingRcAe);
+        }catch (SQLException sqlEx) {
+              MainCHK.tulisLog("Error update DB saat AE timeout: " + sqlEx.getMessage());
+          }
+        } else {
+        // Pengecekan spesifik untuk HTTP Status Code 404 (Not Found) dan 500 (Internal Server Error)
+          int httpCode = aeEx.getHttpStatus();
+        if (httpCode == 404) {
+               MainCHK.tulisLog("[AE-HTTP-404][2026-08-24] Response HTTP 404 (Not Found) saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
+        try {
+             String documentNumberOnTable = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
+                if (documentNumberOnTable == null){
+                    mariaDb.insertDataSp2dBfast(item);
+                }
+            mariaDb.handleAccountInquiryError(item, "68", mappingRcAe);
+        } catch (SQLException sqlEx) {
+            MainCHK.tulisLog("Error update DB saat AE HTTP 404: " + sqlEx.getMessage());
         }
+    } else if (httpCode == 500) {
+        MainCHK.tulisLog("[AE-HTTP-500][2026-08-24] Response HTTP 500 (Internal Server Error) saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
+        try {
+             String documentNumberOnTable = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
+                if (documentNumberOnTable == null){
+                    mariaDb.insertDataSp2dBfast(item);
+                }
+            mariaDb.handleAccountInquiryError(item, "68", mappingRcAe);
+        } catch (SQLException sqlEx) {
+            MainCHK.tulisLog("Error update DB saat AE HTTP 500: " + sqlEx.getMessage());
+        }
+        }
+            return;
+    }
+    }
 
         String responseCode = Utillity.safe(accountInquiryResponse.getResponseCode());
 
@@ -244,7 +270,11 @@ public class ProcessBifast {
         }
         else if (beneficiaryBankIsnotAvailable) {
             try {
-                mariaDb.failedProcessBifast(item, mappingRcSpan);
+                String documentNumberOnTableSp2dBifast =mariaDb.getDataSp2dBifast(item.getDocumentNumber());
+            if (documentNumberOnTableSp2dBifast == null){
+                  mariaDb.insertDataSp2dBfast(item);
+                }
+               mariaDb.handleAccountInquiryErrorRcSpan(item, mappingRcSpan);
             } catch (SQLException e) {
                 MainCHK.tulisLog(e.getMessage());
             }
@@ -313,7 +343,7 @@ public class ProcessBifast {
 
         // Skenario 1: Timeout BI-FAST Hub (RC 51)
         if (timeoutFromCi) {
-            mariaDb.handleResponseTimeoutFromCi(item);
+            mariaDb.handleResponseTimeoutFromCi(item ,ctResponse);
             int numOfRetryStatus = mariaDb.getNumRetryStatus(item);
             if (numOfRetryStatus < 5) {
                 handleCreditTransferTimeout(item, ctResponse, mariaDb);
@@ -381,7 +411,12 @@ public class ProcessBifast {
                  }
 
                 mariaDb.insertReturDatainPostingTable(dataRetur, resp);
-                mariaDb.updateSp2dstageinAEerror(item , rcSpan , inquiryResponse.getResponseCode());
+                 String documentNumberOnTableSp2dBifast =mariaDb.getDataSp2dBifast(item.getDocumentNumber());
+                 if (documentNumberOnTableSp2dBifast == null){
+                      mariaDb.insertDataSp2dBfast(item);
+                }
+                mariaDb.handleAccountInquiryErrorRcSpan(item, rcSpan);
+                mariaDb.updateSp2dstageinAEerror(item , inquiryResponse.getResponseCode());
                 mariaDb.prosesAckRetur(item.getDocumentNumber());
 
             } catch (Exception e) {
@@ -416,7 +451,6 @@ public class ProcessBifast {
         paymenStatusRequest.setChannelType("02");
         paymenStatusRequest.setBicSendSys("BSMDIDJA");
         paymenStatusRequest.setOriginator("O");
-        paymenStatusRequest.setEndToEndId("20260729BSMDIDJA010O0250004315");
         return paymenStatusRequest;
     }
 
@@ -483,9 +517,14 @@ public class ProcessBifast {
 
     public void handleCreditTransferTimeout(SpanSp2dStageIn item, CreditTransferResponse cTransferResponse, ServiceMariaDb mariaDb) {
         try {
-            MainCHK.tulisLog("Memproses Status Payment Request  untuk doc: " + item.getDocumentNumber() + " [code=" + cTransferResponse.getResponseCode() + "]");
+            MainCHK.tulisLog("Memproses Status Payment Request  untuk doc: " + item.getDocumentNumber() + " [code=" + item.getReturnCode() + "]");
 
             PaymenStatusRequest tiRequest = buildPaymentStatusRequest(item);
+            try{
+                tiRequest.setEndToEndId(mariaDb.getDataEndToEndId(item.getDocumentNumber()));
+            } catch (SQLException e ){
+                MainCHK.tulisLog("Error saat get data end to end id untuk kebutuhan psr untuk doc : "+ item.getDocumentNumber());
+            }
             PaymentStatusResponse tiResponse = null;
 
             try {
@@ -493,6 +532,19 @@ public class ProcessBifast {
             } catch (ApiClientException e) {
                 if (e.isNetworkTimeout()) {
                     MainCHK.tulisLog("Network timeout saat get status inquiry: " + e.getMessage());
+                    int counterUpdate = mariaDb.getNumRetryStatus(item) + 1;
+                        if (counterUpdate == 5){
+                        CreditTransferResponse ctResponse = new CreditTransferResponse();
+                        ctResponse.setResponseCode("000");
+                        ctResponse.setReferenceId(item.getReferenceNumber());
+                        mariaDb.postingMessageAfterCt(item, ctResponse);
+                        mariaDb.prosesAck(item);
+                        } else {
+                        mariaDb.initiateRetryCheckStatus(item);
+                        }
+                        MainCHK.tulisLog("Increment counter");
+                        mariaDb.increaseCounterCheckstatusBifast(item, counterUpdate);
+
                 } else {
                     MainCHK.tulisLog("API Exception saat get status inquiry: " + e.getMessage());
                 }
@@ -508,6 +560,7 @@ public class ProcessBifast {
                     try {
                         CreditTransferResponse ctResponse = new CreditTransferResponse();
                         ctResponse.setResponseCode("000");
+                        // harus di cek
                         ctResponse.setReferenceId(cTransferResponse.getReferenceId());
                         mariaDb.postingMessageAfterCt(item, ctResponse);
                         mariaDb.prosesAck(item);
@@ -523,7 +576,7 @@ public class ProcessBifast {
                         if (counterUpdate == 5){
                         CreditTransferResponse ctResponse = new CreditTransferResponse();
                         ctResponse.setResponseCode("000");
-                        ctResponse.setReferenceId("FT DUMMY TOBE NYA HARUS DARI ESB ");
+                        ctResponse.setReferenceId(item.getReferenceNumber());
                         mariaDb.postingMessageAfterCt(item, ctResponse);
                         mariaDb.prosesAck(item);
                         } else {
@@ -720,18 +773,7 @@ public class ProcessBifast {
             });
 
         }
-        ServiceMariaDb threadMariaDb = createMariaDbInstance();
-        try {
-            for (SpanSp2dStageIn item : processData) {
-                MainCHK.tulisLog("[GAP7] Processing Timeout CT Status Inquiry untuk doc: " + item.getDocumentNumber());
-                CreditTransferResponse dummyResponse = new CreditTransferResponse();
-                dummyResponse.setResponseCode("51");
-                dummyResponse.setEndToEndId(item.getReferenceNumber());
-                handleCreditTransferTimeout(item, dummyResponse, threadMariaDb);
-            }
-        } finally {
-            try { threadMariaDb.close(); } catch (Exception e) {}
-        }
+        
     }
 
     //  Method scheduler untuk memproses ulang data berstatus RRS-000 (Retry Retur FT T24)

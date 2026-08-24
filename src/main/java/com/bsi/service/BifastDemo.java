@@ -64,10 +64,9 @@ public class BifastDemo {
          */
         try{
 
-                   mariaDb.excludeOutOfBalanceBO2();
-
+                   
                     MainCHK.tulisLog("Start proses posting transaction...");
-                    List<SpanSp2dStageIn> dataBifast = mariaDb.getDataBifast("BO2");
+                    List<SpanSp2dStageIn> dataRgs = mariaDb.getDataBifastForSchedulerPurpose(mariaDb.statusForRetryGetstatus);
 
                     PathPropertiesBifast pathPropertiesBifast = new PathPropertiesBifast("C:\\Users\\ven.arya\\Downloads\\Project\\2026\\SPAN\\Custom Handler\\span-custom-handler\\tesDs","bo2span");
                     String configFilePath = pathPropertiesBifast.getPathProp() + (pathPropertiesBifast.getPathProp().endsWith("/") || pathPropertiesBifast.getPathProp().endsWith("\\") ? "" : File.separator) + pathPropertiesBifast.getPropName() + ".properties";
@@ -76,7 +75,7 @@ public class BifastDemo {
                     BifastConfig config = BifastConfig.fromProperties(configFilePath);
 
                     ProcessBifast processBifast = new ProcessBifast(config, pathPropertiesBifast);
-                    processBifast.paymentBifast(dataBifast);
+                    processBifast.prosesTimeoutCtBifast(dataRgs);
 
                     MainCHK.tulisLog("Proses posting transaction done..");
 

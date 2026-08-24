@@ -115,7 +115,7 @@ public class SpanConfig {
    }
 
     public String getAcctRpkbunNonGaji() {
-       return acctRpkbunNonGaji;
+       return this.acctRpkbunNonGaji;
    }
    
     public void setAcctRpkbunNonGaji(String acctRpkbunNonGaji) {
@@ -127,7 +127,7 @@ public class SpanConfig {
    }
    
    public void setAcctRrRpkbunNonGaji(String acctRrRpkbunNonGaji) {
-       this.acctRpkbunNonGaji = acctRrRpkbunNonGaji;
+       this.acctRrRpkbunNonGaji = acctRrRpkbunNonGaji;
    }
 
    public String getAcctRpkbunGaji() {

@@ -446,7 +446,7 @@ public class ServiceMariaDb {
         // default use account non gaji 
          String sourceAccount="";
          String sourceRetur="";
-
+        
         switch (activities.trim().toUpperCase()) {
             case "BO2":
                 sourceAccount = spanConfig.getAcctRpkbunGaji();
@@ -460,6 +460,8 @@ public class ServiceMariaDb {
                 sourceAccount=spanConfig.getAcctReksusSbsn();
                 sourceRetur=spanConfig.getAcctRrReksusSbsn();
         }
+
+        MainCHK.tulisLog(sourceRetur+" And " + sourceAccount);
 
         MainCHK.tulisLog(sourceAccount + " " + sourceRetur);
         List<SpanSp2dStageIn> result = new ArrayList<>();
@@ -857,12 +859,12 @@ public class ServiceMariaDb {
 
     public void finalizeSuccessRecords(SpanSp2dStageIn stagein) throws SQLException {
 
-        String transactionType = Utillity.getTransactionType(stagein, this.spanConfig);
+        String transactionType = Utillity.safe(Utillity.getTransactionType(stagein, this.spanConfig));
 
         String sourceAccount="";
         String returAccount="";
 
-        switch (transactionType) {
+        switch (transactionType.trim().toUpperCase()) {
             case "BO2":
                 sourceAccount = spanConfig.getAcctRpkbunGaji();
                 returAccount  = spanConfig.getAcctRrRpkbunGaji();
@@ -976,21 +978,119 @@ public class ServiceMariaDb {
         System.out.println("Finalized " + updated + " record(s): RGS-000 → FIN-000");
     }
   } 
+
+
+  public String getDataSp2dBifast(String documentNumber) throws SQLException{
+    String result =null;
+
+    String sql = Utillity.getDataBifastByDocumentNumber();
+    try(PreparedStatement ps = conn.prepareStatement(sql)){
+        ps.setString(1, documentNumber);
+        try(ResultSet rs = ps.executeQuery()){
+           if (rs.next()){
+            result = rs.getString("document_number");
+           }
+        }
+    }
+
+    return result;
+  }
+
+   public String getDataEndToEndId(String documentNumber) throws SQLException{
+    String result =null;
+
+    String sql = Utillity.getDataBifastByDocumentNumber();
+    try(PreparedStatement ps = conn.prepareStatement(sql)){
+        ps.setString(1, documentNumber);
+        try(ResultSet rs = ps.executeQuery()){
+           if (rs.next()){
+            result = rs.getString("end_to_end_id");
+           }
+        }
+    }
+
+    return result;
+  }
+
+   public void insertDataSp2dBfast(SpanSp2dStageIn item)throws SQLException{
+    String sql  = Utillity.insertDataSp2dBifast();
+    try(PreparedStatement ps = conn.prepareStatement(sql)){
+        ps.setString(1, item.getDocumentNumber());
+        int updated = ps.executeUpdate();
+         if (updated > 0) {
+                MainCHK.tulisLog("insert data sp2dBifast berhasil pada span_sp2d_stage_in untuk doc: " + item.getDocumentNumber());
+            } else {
+                MainCHK.tulisLog("insert data sp2dBifast gagal pada span_sp2d_stage_in untuk doc: " + item.getDocumentNumber());
+            }
+    }
+   }
+
+     public void insertDataSp2dBfastCtTimeout(SpanSp2dStageIn item , String endToEndId)throws SQLException{
+    String sql  = Utillity.insertDataSp2dBifastCtTimeout();
+    try(PreparedStatement ps = conn.prepareStatement(sql)){
+        ps.setString(1, item.getDocumentNumber());
+        ps.setString(2, endToEndId);
+        int updated = ps.executeUpdate();
+         if (updated > 0) {
+                MainCHK.tulisLog("insert data sp2dBifast berhasil pada span_sp2d_stage_in untuk doc: " + item.getDocumentNumber());
+            } else {
+                MainCHK.tulisLog("insert data sp2dBifast gagal pada span_sp2d_stage_in untuk doc: " + item.getDocumentNumber());
+            }
+    }
+   }
+
+  public void handleAccountInquiryError(SpanSp2dStageIn item, String responseCode, Map<String,BifastRcMapping> mappingRcAe) throws SQLException{
+        Map<String,BifastRcMapping> map = mappingRcAe;
+        String rcBifast = map != null ? Utillity.safe(map.get(responseCode).span_rc) : "";
+
+        String sql ="UPDATE sp2d_bifast_data " +
+                    "SET bifast_response_code = ? "+
+                    "WHERE documentnumber = ? ";
+       
+        try (PreparedStatement ps = conn.prepareStatement(sql)){
+            ps.setString(1, rcBifast);
+            ps.setString(2, item.getDocumentNumber());
+            int updated = ps.executeUpdate();
+            if (updated > 0) {
+                MainCHK.tulisLog("Updated bifast_response_code = '" + responseCode + "' pada span_sp2d_stage_in untuk doc: " + item.getDocumentNumber());
+            } else {
+                MainCHK.tulisLog("Gagal update bifast_response_code untuk doc: " + item.getDocumentNumber());
+            }
+        }             
+  }
+
+  public void handleAccountInquiryErrorRcSpan(SpanSp2dStageIn item, String rcSpan) throws SQLException{
+        
+        String sql ="UPDATE sp2d_bifast_data " +
+                    "SET bifast_response_code = ? "+
+                    "WHERE documentnumber = ? ";
+       
+        try (PreparedStatement ps = conn.prepareStatement(sql)){
+            ps.setString(1, rcSpan);
+            ps.setString(2, item.getDocumentNumber());
+            int updated = ps.executeUpdate();
+            if (updated > 0) {
+                MainCHK.tulisLog("Updated bifast_response_code  pada span_sp2d_stage_in untuk doc: " + item.getDocumentNumber());
+            } else {
+                MainCHK.tulisLog("Gagal update bifast_response_code untuk doc: " + item.getDocumentNumber());
+            }
+        }             
+  }
+
+  
     
     public void failedProcessBifast(SpanSp2dStageIn item,String responseCode) throws SQLException{
         
         Map<String,BifastRcMapping> map = Utillity.fetchBifastRcMappingCt(conn);
         String rcBifast = map != null ? Utillity.safe(map.get(responseCode).span_rc) : "";
 
-        String sql ="UPDATE span_sp2d_stage_in " +
+        String sql ="UPDATE sp2d_bifast_data " +
                     "SET bifast_response_code = ? "+
-                    "WHERE documentnumber = ? " +
-                    "AND status = ? ";
+                    "WHERE document_number = ? ";
        
         try (PreparedStatement ps = conn.prepareStatement(sql)){
             ps.setString(1, rcBifast);
             ps.setString(2, item.getDocumentNumber());
-            ps.setString(3, statusReadyPosting);
             int updated = ps.executeUpdate();
             if (updated > 0) {
                 MainCHK.tulisLog("Updated bifast_response_code = '" + responseCode + "' pada span_sp2d_stage_in untuk doc: " + item.getDocumentNumber());
@@ -1029,22 +1129,33 @@ public class ServiceMariaDb {
 
     public void handleCorePostingFailed(SpanSp2dStageIn item) throws SQLException {
         MainCHK.tulisLog("Processing Core Banking Posting Failed / Error Validasi Core (RC 05) update untuk doc: " + item.getDocumentNumber());
-        updateBifastResponseCode(item, rcForCorePostingFailed);
+         String documentNumberOnTableSp2dBifast =getDataSp2dBifast(item.getDocumentNumber());
+            if (documentNumberOnTableSp2dBifast == null){
+                insertDataSp2dBfast(item);
+                }
+            updateBifastResponseCode(item, rcForCorePostingFailed);
     }
 
 
      // 2026-08-06
-    public void handleResponseTimeoutFromCi(SpanSp2dStageIn item) throws SQLException{
-        Map<String,BifastRcMapping> map = Utillity.fetchBifastRcMappingCt(conn);
-        String rcBifast = map != null ? Utillity.safe(map.get(rcForTimeoutCtProcess).span_rc) : "";
+    public void handleResponseTimeoutFromCi(SpanSp2dStageIn item , CreditTransferResponse cResponse) throws SQLException{
+
+       MainCHK.tulisLog("Processing Credit Transfer Posting Timeout From Ci-Connector untuk doc: " + item.getDocumentNumber());
+         String documentNumberOnTableSp2dBifast =getDataSp2dBifast(item.getDocumentNumber());
+            if (documentNumberOnTableSp2dBifast == null){
+                insertDataSp2dBfastCtTimeout(item, cResponse.getEndToEndId());
+                }
+            updateBifastResponseCode(item, rcForTimeoutCtProcess);
+
+        
         String sql ="UPDATE span_sp2d_stage_in " +
-                    "SET status = ? , bifast_response_code = ? "+
+                    "SET status = ? , return_code = ? "+
                     "WHERE documentnumber = ? " +
                     "AND status = ? ";
 
         try (PreparedStatement ps  = conn.prepareStatement(sql)) {
             ps.setString(1, statusTimeoutCreditTransferBifast);
-            ps.setString(2, rcBifast);
+            ps.setString(2, rcForTimeoutCtProcess);
             ps.setString(3, item.getDocumentNumber());
             ps.setString(4, statusReadyPosting);
             int updated = ps.executeUpdate();
@@ -1099,7 +1210,7 @@ public class ServiceMariaDb {
         }
     }
 
-    public void updateSp2dstageinAEerror(SpanSp2dStageIn item, String mappingRc ,String returnCode) throws SQLException{
+    public void updateSp2dstageinAEerror(SpanSp2dStageIn item ,String returnCode) throws SQLException{
 
         String transactionType = Utillity.getTransactionType(item, this.spanConfig);
         String sourceAccount;
@@ -1119,20 +1230,19 @@ public class ServiceMariaDb {
                 sourceRetur =   spanConfig.getAcctRrReksusSbsn();
         }
 
-        String sql = "UPDATE span_sp2d_stage_in SET status = ? , bifast_response_code = ? , " +
+        String sql = "UPDATE span_sp2d_stage_in SET status = ? , " +
                      "return_code = ? WHERE documentdate = ? " +
-                     "AND status = ? " +
-                     "AND agentbankaccountnumber IN ('" + sourceAccount + "','" + sourceRetur + "') "+
+                     "AN = ? " +
+                     "AND agentbankaccouD statusntnumber IN ('" + sourceAccount + "','" + sourceRetur + "') "+
                      "AND paymentmethod ='5' "+
                      "AND documentnumber = ? ";
 
         try(PreparedStatement ps = conn.prepareStatement(sql)){
             ps.setString(1, statusPosted);
-            ps.setString(2, mappingRc );
-            ps.setString(3, returnCode);
-            ps.setString(4, spanConfig.getAppDate());
-            ps.setString(5,statusReadyPosting);
-            ps.setString(6, item.getDocumentNumber());
+            ps.setString(2, returnCode);
+            ps.setString(3, spanConfig.getAppDate());
+            ps.setString(4,statusReadyPosting);
+            ps.setString(5, item.getDocumentNumber());
 
             int rowUpdate = ps.executeUpdate();
             if (rowUpdate == 0){
@@ -1145,36 +1255,32 @@ public class ServiceMariaDb {
 
     // 2026-08-06
     public void initiateRetryCheckStatus(SpanSp2dStageIn item) throws SQLException{
-        Map<String,BifastRcMapping> map = Utillity.fetchBifastRcMappingCt(conn);
-        String rcBifast = map.get(rcForTimeoutGetstatus).span_rc;
+    
         String sql = "UPDATE span_sp2d_stage_in " +
-                     "SET status = ? , bifast_response_code = ? " +
+                     "SET status = ? " +
                      "WHERE documentnumber = ? "+
                      "AND paymentmethod = '5'";
         try (PreparedStatement ps = conn.prepareStatement(sql)){
             ps.setString(1, statusForRetryGetstatus);
-             ps.setString(2, rcBifast);
-            ps.setString(3, item.getDocumentNumber());
+            ps.setString(2, item.getDocumentNumber());
             ps.executeUpdate();
-        }            
+        }
+        
+        updateBifastResponseCode(item, rcForTimeoutGetstatus);
     }
 
    
     public int getNumRetryStatus(SpanSp2dStageIn item) throws SQLException{
-        String sql = "SELECT retry_bifast_status FROM span_sp2d_stage_in " +
-                     "WHERE documentnumber = ? "+
-                     "AND paymentmethod = '5'" +
-                     "AND status = ? ";
-        int counter=0;                     
+        String sql = "SELECT retry_bifast_status FROM sp2d_bifast_data WHERE document_number = ? ";
+        int result=0;                     
         try (PreparedStatement ps = conn.prepareStatement(sql)){
             ps.setString(1, item.getDocumentNumber());
-            ps.setString(2, statusTimeoutCreditTransferBifast);
          try(ResultSet rs = ps.executeQuery()){
              if (rs.next()){
-               counter = rs.getInt("retry_bifast_status"); 
+               result = rs.getInt("retry_bifast_status"); 
              }
          }
-        return counter;
+        return result;
     }
    }
     public void increaseCounterCheckstatusBifast(SpanSp2dStageIn item , int counter ) throws SQLException{
