@@ -69,6 +69,8 @@ public class ServiceMariaDb {
     public final String statusForManualRetur = "RMR-000";
     public final String statusForApprovedValidationName ="AVN-000";
 
+    private static final String PAYMENT_METHOD_BIFAST = "5";
+
 
     //esb response code
     public final String rcForTimeoutCtProcess ="51";
@@ -1334,7 +1336,28 @@ public class ServiceMariaDb {
         }
         return result;
     }
+    
 
+    public List<SpanSp2dPosting> fetchsp2dPostingForAckBatch() throws SQLException{
+      List<SpanSp2dPosting> result = new ArrayList<>();
+      String sql = Utillity.getDataForProsesAckBatch();
+      try(PreparedStatement ps = conn.prepareStatement(sql)){
+        try(ResultSet rs = ps.executeQuery()){
+            while (rs.next()) {
+                 SpanSp2dPosting row = new SpanSp2dPosting();
+                    row.applicationareaMessageTypeIndicator     = rs.getString("applicationareamessagetypeindicator");
+                    row.applicationareaSenderIdentifier         = rs.getString("applicationareasenderidentifier");
+                    row.applicationareaMessageIdentifier        = rs.getString("applicationareamessageidentifier");
+                    row.amount                                  = rs.getBigDecimal("amount");
+                    row.returnCode                              = rs.getString("return_code");
+                    row.documentNumber                          = rs.getString("documentnumber");
+                    row.paymentMethod                           = rs.getString("paymentmethod");
+                    result.add(row);
+            }
+        }
+      }
+      return result;
+    }
 
     public  List<SpanSp2dPosting> fetchSp2dPostingForGaji(String documentNumber) throws SQLException {
         String sql =Utillity.getDataPostingForGenerateAck();
@@ -1474,7 +1497,28 @@ public class ServiceMariaDb {
     }
    }
 
-    public void prosesAck(SpanSp2dStageIn item){
+    public void prosesAckBatch(){
+        GenerateAckOut generateAckOut = new GenerateAckOut();
+        MainCHK.tulisLog("Process Ack Batch");
+      
+       try{
+        List<SpanSp2dPosting> source = fetchsp2dPostingForAckBatch();
+        Map<String,ReturnStatusAck> map_status_code = Utillity.fetchReturnStatusAck(conn);
+
+          if (!source.isEmpty() && source != null){
+            String outputPath = generateAckOut.generateAckFile(conn,spanConfig,source,map_status_code);
+            generateAckOut.copyToArchiveIfExists(spanConfig, outputPath, new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
+            for (SpanSp2dPosting data : source){
+              generateAckOut.updateFlagAckBatch(conn, spanConfig, data);
+         }
+        }
+        }
+        catch (IOException | SQLException e){
+         MainCHK.tulisLog("Error saat generate ack transaksi bifast " +e.getMessage());
+         e.printStackTrace();
+       }
+    }  
+   public void prosesAck(SpanSp2dStageIn item){
         GenerateAckOut generateAckOut = new GenerateAckOut();
         MainCHK.tulisLog("Process generate ack untuk document number :" + item.getDocumentNumber());
         List<SpanSp2dPosting> source = null;

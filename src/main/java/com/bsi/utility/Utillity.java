@@ -9,8 +9,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import com.bsi.MainCHK;
 import com.bsi.config.SpanConfig;
 import com.bsi.entity.span.BifastRcMapping;
 import com.bsi.entity.span.ReturnStatusAck;
@@ -329,6 +327,23 @@ public static String extractBifastDescription (String bifastDescription) {
             "  AND documentnumber = ?"; 
    }
 
+
+   public static String getDataForProsesAckBatch (){
+     return "SELECT " +
+            "posting.applicationareamessagetypeindicator, " +
+            "posting.applicationareasenderidentifier, " +
+            "posting.applicationareamessageidentifier, " +
+            "posting.amount, " +
+            "posting.return_code, " +
+            "posting.documentnumber, " +
+            "posting.paymentmethod " +
+            "FROM span_sp2d_posting posting " +
+            "INNER JOIN span_sp2d_stage_in stagein " +
+            "ON posting.documentnumber = stagein.documentnumber " +
+            "WHERE posting.flag_ack IS NULL " +
+            "AND posting.paymentmethod = '5' " +
+            "AND stagein.flag_ack IS NULL";
+   }
    public static String getDataPostingForGenerateAck(){
        return  " SELECT " +
             "  id, applicationareasenderidentifier, applicationareareceiveridentifier," +
@@ -358,7 +373,7 @@ public static String extractBifastDescription (String bifastDescription) {
             " AND paymentmethod ='5' "; 
    }
 
-   public static String updateFlagAckReturProses(String nameTable){
+   public static String updateFlagAckDoubeTable(String nameTable){
       String tablename  ="";
 
       switch (nameTable) {

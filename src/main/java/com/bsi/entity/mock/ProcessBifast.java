@@ -410,11 +410,10 @@ public class ProcessBifast {
                 creditAccount = mariaDb.getSpanconfig().getAcctRrReksusSbsn();
         }
 
-        FundsTransferSoapResponse resp = ProsesRetur.returProcess(item, debitAccount, creditAccount, transactionType);
-        Map<String, BifastRcMapping> map = mariaDb.getBifastMappingRcAe();
-
-        if (resp != null && resp.isSuccess()) {
+        ProsesRetur prosesRetur = new ProsesRetur(configT24);
+        FundsTransferSoapResponse resp = prosesRetur.returProcess(item, debitAccount, creditAccount, transactionType);
     
+        if (resp != null && resp.isSuccess()) {
             try {
                 mariaDb.insertPostingAeFailure(item, inquiryResponse);
             } catch (SQLException e) {
@@ -425,8 +424,6 @@ public class ProcessBifast {
                 SpanSp2dStageIn dataRetur = cloneItemForRetur(item);
                 dataRetur.setBeneficiaryAccount(creditAccount);
                 dataRetur.setAgentBankAccountNumber(debitAccount);
-
-        
                 mariaDb.insertReturDatainPostingTable(dataRetur, resp);
                 String documentNumberOnTableSp2dBifast =mariaDb.getDataSp2dBifast(item.getDocumentNumber());
                  if (documentNumberOnTableSp2dBifast == null){
@@ -435,7 +432,6 @@ public class ProcessBifast {
                 mariaDb.handleAccountInquiryErrorRcSpan(item, rcSpan);
                 mariaDb.updateSp2dstageinAEerror(item , inquiryResponse.getResponseCode());
                 mariaDb.prosesAckRetur(item.getDocumentNumber());
-
             } catch (Exception e) {
                 MainCHK.tulisLog("Error insert data retur AE pada tabel posting: " + e.getMessage());
             }
@@ -661,8 +657,9 @@ public class ProcessBifast {
                 creditAccount = mariaDb.getSpanconfig().getAcctRrReksusSbsn();
                 break;
         }
-
-        FundsTransferSoapResponse resp = ProsesRetur.returProcess(item, debitAccount, creditAccount, transactionType);
+        
+           ProsesRetur prosesRetur = new ProsesRetur(configT24);
+          FundsTransferSoapResponse resp = prosesRetur.returProcess(item, debitAccount, creditAccount, transactionType);
 
         if (resp != null && resp.isSuccess()) {
             MainCHK.tulisLog("Sukses retur pada T24, Transaction ID: " + resp.getTransactionId());

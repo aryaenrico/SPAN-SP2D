@@ -30,18 +30,17 @@ public class GenerateAckOut {
         
         String creationDateTime = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
         String fileName = config.getBankCode() + "_SP2D_FA_" + creationDateTime + ".out";
+        
         //String outputDir = "C:/Users/ven.arya/Downloads/Project/2026/SPAN/Custom Handler/put";
+        
         String outputDir = config.getPathBo2spanHome() + config.getPathSpanAcknowledgePut();
         String outputPath = outputDir + File.separator + fileName;
         String currentDate =new SimpleDateFormat("yyyy-MM-dd").format(new Date());
-        
-        
     
         new File(outputDir).mkdirs();
         try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputPath)))) {
            for (SpanSp2dPosting row : rows) {
                 ReturnStatusAck ack = statusAckMap.get(row.returnCode);
-                MainCHK.tulisLog("payment Method :"+row.paymentMethod);
                 
                 String code = ack != null ? Utillity.safe(ack.code)  : "";
                 String ackDesc = ack != null ? Utillity.safe(ack.description)  : "";
@@ -53,7 +52,7 @@ public class GenerateAckOut {
                     description = ackDesc; 
                 }
                 
-                // Menulis data sesuai urutan tMap -> tFileOutputDelimited
+                // format retur
                 String line = String.join("|",
                     Utillity.safe(currentDate),
                     Utillity.safe(row.applicationareaMessageTypeIndicator),
@@ -98,7 +97,7 @@ public class GenerateAckOut {
         Files.copy(source.toPath(), new File(archivePath).toPath(), StandardCopyOption.REPLACE_EXISTING);
     }
 
-    public  void updateFlagAck(Connection conn, SpanConfig ctx , SpanSp2dPosting data) throws SQLException {
+    public void updateFlagAck(Connection conn, SpanConfig ctx , SpanSp2dPosting data) throws SQLException {
         String sql =Utillity.updateFlagAckTablePosting();
         String transactionType = Utillity.getTransactionTypeForAck(data,ctx);
 
@@ -122,6 +121,7 @@ public class GenerateAckOut {
                 paramRR2 = ctx.getAcctRrReksusSbsn();
                 paramInclude1 =ctx.getAcctRrRpkbunNonGaji();
                 paramInclude2 = ctx.getAcctRrRpkbunNonGaji();
+                break;
         }
 
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -134,17 +134,29 @@ public class GenerateAckOut {
         }
     }
 
-    public  void updateFlagAckRetur(Connection conn, SpanConfig ctx , SpanSp2dPosting data) throws SQLException {
-        String sql =Utillity.updateFlagAckReturProses("span_sp2d_posting"); 
+    public void updateFlagAckRetur(Connection conn, SpanConfig ctx , SpanSp2dPosting data) throws SQLException {
+       updateFlagAckDoubleTable(conn, ctx, data);
+    }
+
+    public void updateFlagAckBatch(Connection conn, SpanConfig ctx , SpanSp2dPosting data) throws SQLException {
+       updateFlagAckDoubleTable(conn, ctx, data);
+    }
+
+    private void updateFlagAckDoubleTable(Connection conn, SpanConfig ctx , SpanSp2dPosting data) throws SQLException{
+       String sql =Utillity.updateFlagAckDoubeTable("span_sp2d_posting"); 
 
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, Utillity.safe(data.documentNumber));
             ps.executeUpdate();
         }
-        String sql2 =Utillity.updateFlagAckReturProses("span_sp2d_stage_in");
+        String sql2 =Utillity.updateFlagAckDoubeTable("span_sp2d_stage_in");
         try (PreparedStatement ps2 = conn.prepareStatement(sql2)) {
             ps2.setString(1, Utillity.safe(data.documentNumber));
             ps2.executeUpdate();
         }
     }
+
+    
+
+
 }

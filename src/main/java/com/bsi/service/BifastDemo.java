@@ -19,8 +19,6 @@ public class BifastDemo {
         System.out.println("Start");
         ServiceMariaDb mariaDb = new ServiceMariaDb("C:\\Users\\ven.arya\\Downloads\\Project\\2026\\SPAN\\Custom Handler\\span-custom-handler\\tesDs", "bo2span");
        
-        
-
 
      /*
         try{
@@ -88,7 +86,7 @@ public class BifastDemo {
                     MainCHK.tulisLog("Proses posting transaction done..");
                      */
 
-
+       
                     MainCHK.tulisLog("Start proses posting transaction...");
                     List<SpanSp2dStageIn> dataBifast = mariaDb.getDataBifast("BO1");
 
