@@ -478,4 +478,17 @@ public static String extractBifastDescription (String bifastDescription) {
                "(document_number,end_to_end_id) "+
                " VALUES (?,?)";
     }
+
+     public static String sanitizePaymentDetail(String paymentDetails){
+        String result ="";
+        if (paymentDetails == null){
+            return null;
+        }
+        result = paymentDetails.toUpperCase().replaceAll("[^A-Z0-9\\- ]", "");
+        if (result.length() > 64){
+             result = result.substring(0, 64);
+        }
+        return result;
+
+     }
 }

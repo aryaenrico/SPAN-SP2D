@@ -18,7 +18,9 @@ public class BifastDemo {
     public static void main(String[] args) {
         System.out.println("Start");
         ServiceMariaDb mariaDb = new ServiceMariaDb("C:\\Users\\ven.arya\\Downloads\\Project\\2026\\SPAN\\Custom Handler\\span-custom-handler\\tesDs", "bo2span");
-       
+        String input ="asdasdsadsadsadasdasdkjsadkjaldsjlsajdlksajdjsadkjksajdksajdsaczxncbaskjhdaslkcsznvlkdajfnvclksanclkasfcla****(*(*(*(*(*(*(*91^%^$^%$%$%$%$^lkasdaskdlakdlakdlakdlakdlakdlsakdlsakdlsakdlsak;lsakdsalkda";
+        System.out.println(Utillity.sanitizePaymentDetail(input));
+        System.exit(1);
         
 
 
