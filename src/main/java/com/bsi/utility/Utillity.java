@@ -7,6 +7,8 @@ import java.sql.SQLException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.bsi.MainCHK;
 import com.bsi.config.SpanConfig;
@@ -126,6 +128,27 @@ public class Utillity {
         return map;
     }
 
+     public static Map<String, BifastRcMapping> fetchBifastRcMappingPSR(Connection conn) throws SQLException {
+        String sql = "SELECT id, service_type, bifast_rc, bifast_description,span_rc , description_state from bifast_response_mapping " +
+                     "WHERE service_type = 'PAYMENT_STATUS_REQUEST' ";
+        Map<String, BifastRcMapping> map = new HashMap<>();
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                BifastRcMapping rc = new BifastRcMapping();
+                rc.id          = rs.getLong("id");
+                rc.service_type        = rs.getString("service_type");
+                rc.bifast_rc = rs.getString("bifast_rc");
+                rc.bifast_description      = rs.getString("bifast_description");
+                rc.span_rc = rs.getString("span_rc");
+                rc.description_state =rs.getString("description_state");
+
+                map.put(rc.bifast_rc, rc);
+            }
+        }
+        return map;
+    }
+
     public static Map<String, BifastRcMapping> fetchBifastRcMappingAe(Connection conn) throws SQLException {
         String sql = "SELECT id, service_type, bifast_rc, bifast_description,span_rc , description_state from bifast_response_mapping " +
                      "WHERE service_type = 'ACCOUNT_INQUIRY' ";
@@ -141,15 +164,32 @@ public class Utillity {
                 rc.span_rc = rs.getString("span_rc");
                 rc.description_state =rs.getString("description_state");
 
+                // handle duplicate rc 25
                 String key = rc.bifast_rc;
-                while (map.containsKey(key)) {
-                    key = key + "U";
+                if (key.equals("25")){
+                    String esbResponseMessage = extractBifastDescription(rc.bifast_description);
+                    key = key+"|"+esbResponseMessage;
                 }
                 map.put(key, rc);
             }
         }
         return map;
     }
+
+
+
+public static String extractBifastDescription (String bifastDescription) {
+    if (bifastDescription == null) {
+        return null;
+     }
+
+    Pattern pattern = Pattern.compile("([A-Z]?\\d+[A-Z]?)");
+    Matcher matcher = pattern.matcher(bifastDescription);
+    if (matcher.find()) {
+      return matcher.group(1);
+    }
+    return null;
+}
 
   public static Map<String, BifastRcMapping> fetchBifastRcMappingCt(Connection conn) throws SQLException {
         String sql = "SELECT id, service_type, bifast_rc, bifast_description,span_rc , description_state from bifast_response_mapping " +
@@ -159,18 +199,13 @@ public class Utillity {
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 BifastRcMapping rc = new BifastRcMapping();
-                rc.id          = rs.getLong("id");
+                rc.id                  = rs.getLong("id");
                 rc.service_type        = rs.getString("service_type");
-                rc.bifast_rc = rs.getString("bifast_rc");
-                rc.bifast_description      = rs.getString("bifast_description");
-                rc.span_rc = rs.getString("span_rc");
-                rc.description_state =rs.getString("description_state");
-
-                String key = rc.bifast_rc;
-                while (map.containsKey(key)) {
-                    key = key + "U";
-                }
-                map.put(key, rc);
+                rc.bifast_rc           = rs.getString("bifast_rc");
+                rc.bifast_description  = rs.getString("bifast_description");
+                rc.span_rc             = rs.getString("span_rc");
+                rc.description_state   =rs.getString("description_state");
+                map.put(rc.bifast_rc, rc);
             }
         }
         return map;
@@ -428,18 +463,18 @@ public class Utillity {
     }
 
     public static String getDataBifastByDocumentNumber(){
-        return "SELECT document_number , end_to_end_id from sp2d_bifast_data "+
+        return "SELECT document_number , end_to_end_id from span_sp2d_bifast_data "+
                " where document_number = ? ";
     }
 
     public static String insertDataSp2dBifast(){
-        return "INSERT INTO sp2d_bifast_data "+
+        return "INSERT INTO span_sp2d_bifast_data "+
                "(document_number) "+
                " VALUES (?)";
     }
 
      public static String insertDataSp2dBifastCtTimeout(){
-        return "INSERT INTO sp2d_bifast_data "+
+        return "INSERT INTO span_sp2d_bifast_data "+
                "(document_number,end_to_end_id) "+
                " VALUES (?,?)";
     }

@@ -189,7 +189,7 @@ public class ProcessBifast {
                 if (documentNumberOnTable == null){
                     mariaDb.insertDataSp2dBfast(item);
                 }
-                 mariaDb.handleAccountInquiryError(item, "68", mappingRcAe);
+                 mariaDb.handleAccountInquiryError(item, "BLANK", mappingRcAe);
         }catch (SQLException sqlEx) {
               MainCHK.tulisLog("Error update DB saat AE timeout: " + sqlEx.getMessage());
           }
@@ -197,26 +197,26 @@ public class ProcessBifast {
         // Pengecekan spesifik untuk HTTP Status Code 404 (Not Found) dan 500 (Internal Server Error)
           int httpCode = aeEx.getHttpStatus();
         if (httpCode == 404) {
-               MainCHK.tulisLog("[AE-HTTP-404][2026-08-24] Response HTTP 404 (Not Found) saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
+               MainCHK.tulisLog(" Response HTTP 404 (Not Found) saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
         try {
              String documentNumberOnTable = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
                 if (documentNumberOnTable == null){
                     mariaDb.insertDataSp2dBfast(item);
                 }
-            mariaDb.handleAccountInquiryError(item, "68", mappingRcAe);
+            mariaDb.handleAccountInquiryError(item, "404", mappingRcAe);
         } catch (SQLException sqlEx) {
             MainCHK.tulisLog("Error update DB saat AE HTTP 404: " + sqlEx.getMessage());
         }
-    } else if (httpCode == 500) {
-        MainCHK.tulisLog("[AE-HTTP-500][2026-08-24] Response HTTP 500 (Internal Server Error) saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
+    } else if (httpCode == 508) {
+        MainCHK.tulisLog("Response HTTP 508 saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
         try {
              String documentNumberOnTable = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
                 if (documentNumberOnTable == null){
                     mariaDb.insertDataSp2dBfast(item);
                 }
-            mariaDb.handleAccountInquiryError(item, "68", mappingRcAe);
+            mariaDb.handleAccountInquiryError(item, "508", mappingRcAe);
         } catch (SQLException sqlEx) {
-            MainCHK.tulisLog("Error update DB saat AE HTTP 500: " + sqlEx.getMessage());
+            MainCHK.tulisLog("Error update DB saat AE HTTP 508: " + sqlEx.getMessage());
         }
         }
             return;
@@ -238,15 +238,14 @@ public class ProcessBifast {
         String mappingRcSpan = "";
 
         if (accountInquiryResponse.getResponseCode().equals("25")) {
-            accountNoutFound = isRc25ForAccountnotFound(Utillity.safe(accountInquiryResponse.getResponseMessage()));
-            
+            accountNoutFound = isRc25ForAccountnotFound(Utillity.safe(accountInquiryResponse.getResponseMessage()),mappingRcAe);
             if (!accountNoutFound) {
-                beneficiaryBankIsnotAvailable = isRc25ForBankMaintanance(Utillity.safe(accountInquiryResponse.getResponseMessage()));
+                beneficiaryBankIsnotAvailable = true;
             }
-            mappingRcSpan = getMappingRc25(mappingRcAe);
         }
-        
-
+    
+        mappingRcSpan = getSpanRc(responseCode,accountInquiryResponse.getResponseMessage(),mappingRcAe);
+       
         boolean isReturCode = accountNoutFound || "78".equals(responseCode);
         boolean isFallbackSkn = "99".equals(responseCode) || !isNameMatched;
 
@@ -254,10 +253,11 @@ public class ProcessBifast {
             MainCHK.tulisLog("Proses Generate Posting");
             mariaDb.updateSp2dstagein(item);
         } catch (SQLException e) {
-            MainCHK.tulisLog("Error saat update status pst pada table stage in dan uploaded " + e.getMessage());
+            MainCHK.tulisLog("Error saat update status pst pada table stage in " + e.getMessage());
         }
 
         MainCHK.tulisLog("Account Inquiry Rsponse Code :  " + accountInquiryResponse.getResponseCode());
+        
 
         // Case 1 : Ae dan ct sukses
         if (accountInquiryResponse.isSuccess() && isAccountValid) {
@@ -266,7 +266,7 @@ public class ProcessBifast {
         // case 2 : AE retur 
         else if (isReturCode) {
             MainCHK.tulisLog("Proses Retur Validasi Account Inquiry dengan response code : "+ accountInquiryResponse.getResponseCode());
-            executeAccountInquiryReturFlow(item, accountInquiryResponse, mariaDb);
+            executeAccountInquiryReturFlow(item, accountInquiryResponse, mariaDb , mappingRcSpan);
         }
         else if (beneficiaryBankIsnotAvailable) {
             try {
@@ -288,6 +288,28 @@ public class ProcessBifast {
             }
         }
     }
+
+    public String getBifastDescription(String responseCode,String responseMessage,Map<String, BifastRcMapping> rcMapping) {
+     String key;
+        if ("25".equals(responseCode)) {
+           String errorCode = Utillity.extractBifastDescription(responseMessage);
+             key = responseCode + "|" + errorCode;
+        } else {
+         key = responseCode;
+        }
+        return rcMapping.get(key).bifast_description;
+     }
+
+    public String getSpanRc(String responseCode,String responseMessage,Map<String, BifastRcMapping> rcMapping) {
+     String key;
+        if ("25".equals(responseCode)) {
+           String errorCode = Utillity.extractBifastDescription(responseMessage);
+             key = responseCode + "|" + errorCode;
+        } else {
+         key = responseCode;
+        }
+        return rcMapping.get(key).span_rc;
+     }
 
     private void executeCreditTransferFlow(SpanSp2dStageIn item, ServiceMariaDb mariaDb) {
         MainCHK.tulisLog("Initiate Proses Credit Transfer");
@@ -369,7 +391,7 @@ public class ProcessBifast {
         }
     }
 
-    private void executeAccountInquiryReturFlow(SpanSp2dStageIn item, AccountInquiryResponse inquiryResponse, ServiceMariaDb mariaDb) {
+    private void executeAccountInquiryReturFlow(SpanSp2dStageIn item, AccountInquiryResponse inquiryResponse, ServiceMariaDb mariaDb,String rcSpan) {
         MainCHK.tulisLog("Account Inquiry retur process initiated");
 
         String debitAccount = Utillity.safe(item.getAgentBankAccountNumber());
@@ -404,14 +426,9 @@ public class ProcessBifast {
                 dataRetur.setBeneficiaryAccount(creditAccount);
                 dataRetur.setAgentBankAccountNumber(debitAccount);
 
-                String rcSpan = map.get(inquiryResponse.getResponseCode()).bifast_rc;
-
-                if (inquiryResponse.getResponseCode().equals("25")){
-                    rcSpan =getMappingRc25(map);
-                 }
-
+        
                 mariaDb.insertReturDatainPostingTable(dataRetur, resp);
-                 String documentNumberOnTableSp2dBifast =mariaDb.getDataSp2dBifast(item.getDocumentNumber());
+                String documentNumberOnTableSp2dBifast =mariaDb.getDataSp2dBifast(item.getDocumentNumber());
                  if (documentNumberOnTableSp2dBifast == null){
                       mariaDb.insertDataSp2dBfast(item);
                 }
@@ -517,7 +534,7 @@ public class ProcessBifast {
 
     public void handleCreditTransferTimeout(SpanSp2dStageIn item, CreditTransferResponse cTransferResponse, ServiceMariaDb mariaDb) {
         try {
-            MainCHK.tulisLog("Memproses Status Payment Request  untuk doc: " + item.getDocumentNumber() + " [code=" + item.getReturnCode() + "]");
+            MainCHK.tulisLog("Memproses Status Payment Request untuk doc : " + item.getDocumentNumber() + " [code=" + item.getReturnCode() + "]");
 
             PaymenStatusRequest tiRequest = buildPaymentStatusRequest(item);
             try{
@@ -542,7 +559,7 @@ public class ProcessBifast {
                         } else {
                         mariaDb.initiateRetryCheckStatus(item);
                         }
-                        MainCHK.tulisLog("Increment counter");
+                        MainCHK.tulisLog("Increment counter PSR");
                         mariaDb.increaseCounterCheckstatusBifast(item, counterUpdate);
 
                 } else {
@@ -702,30 +719,13 @@ public class ProcessBifast {
         }
     }
 
-    private Boolean isRc25ForAccountnotFound(String responseMessage) {
-        String safeMessage = (responseMessage != null) ? responseMessage : "";
-        if (safeMessage.contains("U136")) {
-            return true;
-        }else if (safeMessage.contains("53 Saving Account Not Registered")){
-            return true;
+    private Boolean isRc25ForAccountnotFound(String responseMessage, Map<String ,BifastRcMapping> map) {
+        String bifastDescription  = getBifastDescription("25", responseMessage, map);
+        if (Utillity.safe(bifastDescription).matches(".*U17[0-9X].*")){
+            MainCHK.tulisLog("Masuk sini ");
+           return false;
         }
-        return false;
-    }
-
-    public String getMappingRc25(Map<String, BifastRcMapping> mapParam) {
-        String responseMessage = Utillity.safe(mapParam.get("25").bifast_description);
-        if (responseMessage.contains("U136") || responseMessage.contains("53 Saving Account Not Registered")) {
-            return mapParam.get("25").span_rc;
-        }
-        return mapParam.get("25U").span_rc;
-    }
-
-    private Boolean isRc25ForBankMaintanance(String responseMessage) {
-        String safeMessage = (responseMessage != null) ? responseMessage.toUpperCase() : "";
-        if (safeMessage.matches(".*U17[0-9X].*")) {
-            return true;
-        }
-        return false;
+        return true;
     }
 
     // GAP 7: Method scheduler untuk memproses ulang data berstatus RGS-000 (Status Inquiry Retry)

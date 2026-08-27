@@ -1061,16 +1061,16 @@ public class ServiceMariaDb {
 
   public void handleAccountInquiryErrorRcSpan(SpanSp2dStageIn item, String rcSpan) throws SQLException{
         
-        String sql ="UPDATE sp2d_bifast_data " +
+        String sql ="UPDATE span_sp2d_bifast_data " +
                     "SET bifast_response_code = ? "+
-                    "WHERE documentnumber = ? ";
+                    "WHERE document_number = ? ";
        
         try (PreparedStatement ps = conn.prepareStatement(sql)){
             ps.setString(1, rcSpan);
             ps.setString(2, item.getDocumentNumber());
             int updated = ps.executeUpdate();
             if (updated > 0) {
-                MainCHK.tulisLog("Updated bifast_response_code  pada span_sp2d_stage_in untuk doc: " + item.getDocumentNumber());
+                MainCHK.tulisLog("Updated bifast_response_code ' pada span_sp2d_stage_in untuk doc: " + item.getDocumentNumber());
             } else {
                 MainCHK.tulisLog("Gagal update bifast_response_code untuk doc: " + item.getDocumentNumber());
             }
@@ -1232,8 +1232,8 @@ public class ServiceMariaDb {
 
         String sql = "UPDATE span_sp2d_stage_in SET status = ? , " +
                      "return_code = ? WHERE documentdate = ? " +
-                     "AN = ? " +
-                     "AND agentbankaccouD statusntnumber IN ('" + sourceAccount + "','" + sourceRetur + "') "+
+                     "AND status = ? " +
+                     "AND agentbankaccountnumber  IN ('" + sourceAccount + "','" + sourceRetur + "') "+
                      "AND paymentmethod ='5' "+
                      "AND documentnumber = ? ";
 
