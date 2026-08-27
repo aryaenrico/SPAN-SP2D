@@ -484,7 +484,7 @@ public class ProcessBifast {
         ctRequest.setCreditorAccountId(item.getBeneficiaryAccount());
         ctRequest.setCreditorAccountType("SVGS");
         ctRequest.setCreditorName(item.getBeneficiaryName());
-        ctRequest.setPaymentInformation("Testing Bifast End To End");
+        ctRequest.setPaymentInformation(Utillity.constructPaymentInformationBifast(item));
         ctRequest.setDebitorType("02");
         ctRequest.setDebitorResidentStatus("01");
         ctRequest.setDebitorTownName("");

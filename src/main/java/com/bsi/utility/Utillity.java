@@ -482,13 +482,22 @@ public static String extractBifastDescription (String bifastDescription) {
      public static String sanitizePaymentDetail(String paymentDetails){
         String result ="";
         if (paymentDetails == null){
-            return null;
+            return "";
         }
         result = paymentDetails.toUpperCase().replaceAll("[^A-Z0-9\\- ]", "");
         if (result.length() > 64){
              result = result.substring(0, 64);
         }
         return result;
+     }
 
+     public static String constructPaymentInformationBifast(SpanSp2dStageIn item){
+        String result="";
+        if (item.getDescription() == null){
+            return "";
+        }
+         result ="SPAN-"+item.getDocumentNumber()+"-"+sanitizePaymentDetail(item.getDescription());
+
+         return result;
      }
 }
