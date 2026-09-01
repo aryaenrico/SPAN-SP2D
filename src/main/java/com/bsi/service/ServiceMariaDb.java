@@ -101,12 +101,14 @@ public class ServiceMariaDb {
             conn = DriverManager.getConnection(url, usrSpan, pwdSpan);
             st = conn.createStatement();
             conn.setAutoCommit(true);
+            
             MainCHK.tulisLog("DB Connected:" + url);
+
             spanConfig = Utillity.loadApplicationConfig(conn);
             spanConfig.setPathBo2spanHome(rb.getString("path_bo2span_home").trim());
             spanConfig.setPathBo2spanConfig(rb.getString("path_bo2span_config").trim());
             spanConfig.setPathSpanAcknowledgePut(rb.getString("path_bo2span_span_acknowledge_put").trim());
-            spanConfig.setPathSpanAcknowledgeArchive(rb.getString("path_bo2span_span_acknowledge_archive"));
+            spanConfig.setPathSpanAcknowledgeArchive(rb.getString("path_bo2span_span_acknowledge_archive").trim());
 
             String baseurl_api_magic = rb.getString("baseurl_api_magic").trim();
             String clientId = rb.getString("magic_clientId").trim();
@@ -443,6 +445,12 @@ public class ServiceMariaDb {
         executeUpdateStatusForIncludeBalance(accountNumber,statusReadyProsesBifast,statusWaitingDroppingBifast);
     }
     
+
+       public void includeOutOfBalanceBO1Bifast() throws SQLException {
+
+        String accountNumber = processIncludeOutOfBalance("ACCT_RPKBUN_NON_GAJI");
+        executeUpdateStatusForIncludeBalance(accountNumber,statusReadyProsesBifast,statusWaitingDroppingBifast);
+    }
     public List<SpanSp2dStageIn> getDataBifast(String activities) throws SQLException{
 
         // default use account non gaji 
@@ -464,8 +472,6 @@ public class ServiceMariaDb {
         }
 
         MainCHK.tulisLog(sourceRetur+" And " + sourceAccount);
-
-        MainCHK.tulisLog(sourceAccount + " " + sourceRetur);
         List<SpanSp2dStageIn> result = new ArrayList<>();
         String sql = "SELECT " + "id, applicationareasenderidentifier, applicationareareceiveridentifier, " +
                      "applicationareadetailsenderidentifier, applicationareadetailreceiveridentifier, " +
@@ -567,8 +573,6 @@ public class ServiceMariaDb {
         return result;
     }
 
-    // Method untuk query data berdasarkan status tertentu (RGS-000 , RRS ).
-    // Digunakan oleh scheduler prosesgetstatus
     public List<SpanSp2dStageIn> getDataBifastForSchedulerPurpose(String targetStatus) throws SQLException {
         List<SpanSp2dStageIn> result = new ArrayList<>();
         String sql = "SELECT id, applicationareasenderidentifier, applicationareareceiveridentifier, " +
@@ -697,10 +701,12 @@ public class ServiceMariaDb {
         Map<String,ReturnStatusAck> map_status_code = Utillity.fetchReturnStatusAck(conn);
         ReturnStatusAck ack = map_status_code.get(response.getResponseCode());
 
-        SpanSp2dPosting rec = constructDataForposting(stageIn, ack , response.getResponseCode());
+        SpanSp2dPosting rec = constructDataForposting(stageIn, ack);
 
         // ft number from response credit transfer
         rec.referenceNumber = response.getReferenceId();
+
+        rec.returnCode = response.getResponseCode();
         
         insertPostingRecords(rec);
         
@@ -714,7 +720,7 @@ public class ServiceMariaDb {
     } 
     }
 
-    public SpanSp2dPosting constructDataForposting(SpanSp2dStageIn stageIn ,ReturnStatusAck ack, String response){
+    public SpanSp2dPosting constructDataForposting(SpanSp2dStageIn stageIn ,ReturnStatusAck ack){
 
         String transactionType = Utillity.getTransactionType(stageIn, this.spanConfig);
         String beneficiaryAccount = "";
@@ -746,8 +752,6 @@ public class ServiceMariaDb {
            }
        }
 
-        rec.returnCode= response;
-
         if (ack != null && "Reject".equals(ack.status)) {
             rec.status = "RDY-008";
             rec.rejectStatus = "N";
@@ -764,17 +768,23 @@ public class ServiceMariaDb {
       
         Map<String,ReturnStatusAck> map_status_code = Utillity.fetchReturnStatusAck(conn);
         ReturnStatusAck ack = map_status_code.get(response.getResponseCode());
-        SpanSp2dPosting rec = constructDataForposting(stageIn, ack, response.getResponseCode());
+        SpanSp2dPosting rec = constructDataForposting(stageIn, ack);
+        rec.returnCode = response.getResponseCode();
         insertPostingRecords(rec);
     }
 
-    public void insertPostingCtFailure(SpanSp2dStageIn stageIn, CreditTransferResponse response ) throws SQLException{
-       
+    public void insertPostingCtFailure(SpanSp2dStageIn stageIn ) throws SQLException{
         Map<String,ReturnStatusAck> map_status_code = Utillity.fetchReturnStatusAck(conn);
-        ReturnStatusAck ack = map_status_code.get(response.getResponseCode());
+        ReturnStatusAck ack = map_status_code.get(stageIn.getReturnCode());
 
-        SpanSp2dPosting rec = constructDataForposting(stageIn, ack, response.getResponseCode());       
-        rec.referenceNumber =response.getReferenceId();
+        if (ack == null){
+            MainCHK.tulisLog("Mappign ack belum tersedia saat proses gagal ct untuk response esb :"+stageIn.getReturnCode());
+            return;
+        }
+
+        SpanSp2dPosting rec = constructDataForposting(stageIn,ack);
+        rec.referenceNumber =stageIn.getReferenceNumber();
+        rec.returnCode = stageIn.getReturnCode();
         insertPostingRecords(rec);
     }
    
@@ -857,6 +867,27 @@ public class ServiceMariaDb {
             }
     }
 }
+
+    public void updateErrorDataForReturProcess(SpanSp2dStageIn records) throws SQLException {
+        String sql =  "UPDATE span_sp2d_stage_in SET  " +
+                "reference_number = ?, return_code = ? WHERE documentnumber = ? "+
+                "AND paymentmethod ='5'";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, records.getReferenceNumber());
+            ps.setString(2, records.getReturnCode());
+
+            int row = ps.executeUpdate();
+
+            if (row > 0){
+                MainCHK.tulisLog("update data pada table stagein untuk proses retur berhasil untuk documentNumber"+records.getDocumentNumber());
+            }else{
+                MainCHK.tulisLog("update data pada table stagein untuk proses retur gagal untuk documentNumber"+records.getDocumentNumber());
+            }
+        }
+    }
+
+
 
 
     public void finalizeSuccessRecords(SpanSp2dStageIn stagein) throws SQLException {
@@ -1045,9 +1076,9 @@ public class ServiceMariaDb {
         Map<String,BifastRcMapping> map = mappingRcAe;
         String rcBifast = map != null ? Utillity.safe(map.get(responseCode).span_rc) : "";
 
-        String sql ="UPDATE sp2d_bifast_data " +
+        String sql ="UPDATE span_sp2d_bifast_data " +
                     "SET bifast_response_code = ? "+
-                    "WHERE documentnumber = ? ";
+                    "WHERE document_number = ? ";
        
         try (PreparedStatement ps = conn.prepareStatement(sql)){
             ps.setString(1, rcBifast);
@@ -1086,7 +1117,7 @@ public class ServiceMariaDb {
         Map<String,BifastRcMapping> map = Utillity.fetchBifastRcMappingCt(conn);
         String rcBifast = map != null ? Utillity.safe(map.get(responseCode).span_rc) : "";
 
-        String sql ="UPDATE sp2d_bifast_data " +
+        String sql ="UPDATE span_sp2d_bifast_data " +
                     "SET bifast_response_code = ? "+
                     "WHERE document_number = ? ";
        
@@ -1259,12 +1290,13 @@ public class ServiceMariaDb {
     public void initiateRetryCheckStatus(SpanSp2dStageIn item) throws SQLException{
     
         String sql = "UPDATE span_sp2d_stage_in " +
-                     "SET status = ? " +
+                     "SET status = ? , reference_number = ? " +
                      "WHERE documentnumber = ? "+
                      "AND paymentmethod = '5'";
         try (PreparedStatement ps = conn.prepareStatement(sql)){
             ps.setString(1, statusForRetryGetstatus);
-            ps.setString(2, item.getDocumentNumber());
+             ps.setString(2, item.getReferenceNumber());
+            ps.setString(3, item.getDocumentNumber());
             ps.executeUpdate();
         }
         
@@ -1273,7 +1305,7 @@ public class ServiceMariaDb {
 
    
     public int getNumRetryStatus(SpanSp2dStageIn item) throws SQLException{
-        String sql = "SELECT retry_bifast_status FROM sp2d_bifast_data WHERE document_number = ? ";
+        String sql = "SELECT retry_bifast_status FROM span_sp2d_bifast_data WHERE document_number = ? ";
         int result=0;                     
         try (PreparedStatement ps = conn.prepareStatement(sql)){
             ps.setString(1, item.getDocumentNumber());
@@ -1499,22 +1531,23 @@ public class ServiceMariaDb {
 
     public void prosesAckBatch(){
         GenerateAckOut generateAckOut = new GenerateAckOut();
-        MainCHK.tulisLog("Process Ack Batch");
-      
+        MainCHK.tulisLog("Start Proses generate Ack secara Batching");
        try{
         List<SpanSp2dPosting> source = fetchsp2dPostingForAckBatch();
         Map<String,ReturnStatusAck> map_status_code = Utillity.fetchReturnStatusAck(conn);
-
           if (!source.isEmpty() && source != null){
-            String outputPath = generateAckOut.generateAckFile(conn,spanConfig,source,map_status_code);
-            generateAckOut.copyToArchiveIfExists(spanConfig, outputPath, new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
+              MainCHK.tulisLog("Jumlah data yang akan di proses : "+ source.size());
+              String outputPath = generateAckOut.generateAckFile(conn,spanConfig,source,map_status_code);
+              generateAckOut.copyToArchiveIfExists(spanConfig, outputPath, new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
             for (SpanSp2dPosting data : source){
               generateAckOut.updateFlagAckBatch(conn, spanConfig, data);
-         }
-        }
+           }
+          } else {
+            MainCHK.tulisLog("Tidak ada data sp2d yang dapat di proses");
+          }
         }
         catch (IOException | SQLException e){
-         MainCHK.tulisLog("Error saat generate ack transaksi bifast " +e.getMessage());
+         MainCHK.tulisLog("Error saat generate ack transaksi bifast " + e.getMessage());
          e.printStackTrace();
        }
     }  
@@ -1588,11 +1621,33 @@ public class ServiceMariaDb {
 
    public void updateStatusForRetryRetur(SpanSp2dStageIn rec , String mappingRc) throws SQLException{
         String sql =Utillity.updateStatusForRetryRetur("span_sp2d_stage_in");
-        Map<String, BifastRcMapping> map = Utillity.fetchBifastRcMappingRetur(conn); 
+        //Map<String, BifastRcMapping> map = Utillity.fetchBifastRcMappingRetur(conn);
 
-        String rcBifast = map != null ? Utillity.safe(map.get(mappingRc).bifast_rc)  : "";        
-        executUpdateForRetryRetur(sql,statusForRetryRetur,mappingRc,rcBifast,rec.getDocumentNumber());
-    }
+        //String rcBifast = map != null ? Utillity.safe(map.get(mappingRc).bifast_rc)  : "";
+        executUpdateForRetryRetur(sql,statusReadyPosting,rec.getDocumentNumber());
+
+       String documentNumberOnTable = getDataSp2dBifast(rec.getDocumentNumber());
+       if (documentNumberOnTable == null){
+           insertDataSp2dBfast(rec);
+       }
+
+       String sqlRetur ="UPDATE span_sp2d_bifast_data " +
+               "SET bifast_response_code = ? "+
+               "WHERE document_number = ? ";
+
+       try (PreparedStatement ps = conn.prepareStatement(sqlRetur)){
+           ps.setString(1, mappingRc);
+           ps.setString(2, rec.getDocumentNumber());
+           int updated = ps.executeUpdate();
+           if (updated > 0) {
+               MainCHK.tulisLog("Updated bifast_response_code = '" + mappingRc + "' pada span_sp2d_stage_in untuk doc: " + rec.getDocumentNumber());
+           } else {
+               MainCHK.tulisLog("Gagal update bifast_response_code untuk doc: " + rec.getDocumentNumber());
+           }
+       }
+
+
+   }
 
    
  
@@ -1702,15 +1757,14 @@ public class ServiceMariaDb {
         try (ResultSet rsSP2D = qSelectSP2D.executeQuery()) {
             while (rsSP2D.next()) {
                 BigDecimal sumAmount = rsSP2D.getBigDecimal("sumamount");
+                MainCHK.tulisLog("Nominal Saldo :" +sumAmount);
                 if (sumAmount != null) {
                     tempAmount = tempAmount.add(sumAmount);
-                    MainCHK.tulisLog("Saldo Compare : "+tempAmount);
+                   
                 }
                 String status = rsSP2D.getString("status");
                 String msgId = rsSP2D.getString("applicationareamessageidentifier");
 
-                MainCHK.tulisLog(status + " : " + msgId);
-                MainCHK.tulisLog("Saldo : " + tempAmount);
 
                 if (amount_balance.compareTo(tempAmount) < 0) {
                     if (flaggingBifast.equals(status)) {
@@ -1762,15 +1816,11 @@ public class ServiceMariaDb {
     }
 }
 
-    private void executUpdateForRetryRetur(String sql, String targetStatus, String rcSpan, String returnCode,String documentNumber) throws SQLException {
+    private void executUpdateForRetryRetur(String sql, String targetStatus,String documentNumber) throws SQLException {
     try (PreparedStatement psUpdate = conn.prepareStatement(sql)) {
             psUpdate.setString(1, targetStatus);
-            psUpdate.setString(2, rcSpan);
-            psUpdate.setString(3, returnCode);
-            psUpdate.setString(4, spanConfig.getAppDate());
-            psUpdate.setString(5, statusForRetryRetur);
-            psUpdate.setString(6, statusReadyPosting);
-            psUpdate.setString(7, documentNumber);
+            psUpdate.setString(2, spanConfig.getAppDate());
+            psUpdate.setString(3, documentNumber);
             MainCHK.tulisLog(psUpdate);
             int rows = psUpdate.executeUpdate();
             if (rows > 0) {

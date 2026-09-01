@@ -1,24 +1,20 @@
 package com.bsi.service;
 
 import java.io.File;
-import java.sql.SQLException;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import com.bsi.MainCHK;
 import com.bsi.config.BifastConfig;
 import com.bsi.entity.mock.ProcessBifast;
 import com.bsi.entity.mock.SpanSp2dStageIn;
 import com.bsi.entity.span.PathPropertiesBifast;
-import com.bsi.utility.Utillity;
+
 
 public class BifastDemo {
 
     public static void main(String[] args) {
         System.out.println("Start");
         ServiceMariaDb mariaDb = new ServiceMariaDb("C:\\Users\\ven.arya\\Downloads\\Project\\2026\\SPAN\\Custom Handler\\span-custom-handler\\tesDs", "bo2span");
-       
+        
 
      /*
         try{
@@ -86,7 +82,7 @@ public class BifastDemo {
                     MainCHK.tulisLog("Proses posting transaction done..");
                      */
 
-       
+                    mariaDb.excludeOutOfBalanceBO1();
                     MainCHK.tulisLog("Start proses posting transaction...");
                     List<SpanSp2dStageIn> dataBifast = mariaDb.getDataBifast("BO1");
 
@@ -98,7 +94,7 @@ public class BifastDemo {
 
                     ProcessBifast processBifast = new ProcessBifast(config, pathPropertiesBifast);
                     processBifast.paymentBifast(dataBifast);
-
+                    mariaDb.includeOutOfBalanceBO1Bifast();
                     MainCHK.tulisLog("Proses posting transaction done..");
             }
                 catch(Exception e){

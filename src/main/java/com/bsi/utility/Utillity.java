@@ -342,7 +342,8 @@ public static String extractBifastDescription (String bifastDescription) {
             "ON posting.documentnumber = stagein.documentnumber " +
             "WHERE posting.flag_ack IS NULL " +
             "AND posting.paymentmethod = '5' " +
-            "AND stagein.flag_ack IS NULL";
+            "AND stagein.flag_ack IS NULL " +
+            "AND posting.status = 'FIN-000' AND stagein.status = 'FIN-000'";
    }
    public static String getDataPostingForGenerateAck(){
        return  " SELECT " +
@@ -411,10 +412,8 @@ public static String extractBifastDescription (String bifastDescription) {
            default:
               tablename = "span_sp2d_posting";
       }
-        return "UPDATE " + tablename + " SET status = ? , bifast_response_code = ? ," +
-                "return_code = ? " +
+        return "UPDATE " + tablename + " SET status = ? " +
                 "WHERE documentdate = ? " +
-                "AND status = ? OR status = ? " +
                 "AND documentnumber = ? ";
      }
 

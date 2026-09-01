@@ -19,20 +19,11 @@ import com.bsi.config.SpanConfig;
 import com.bsi.utility.Utillity;
 
 public class GenerateAckOut {
-    String tanggal;
-    String type ;
-    String documentNumber;
-    String applicationareamessageidentifier;
-    String returnCode;
-    String description;
 
     public String generateAckFile(Connection conn, SpanConfig config, List<SpanSp2dPosting> rows, Map<String, ReturnStatusAck> statusAckMap) throws IOException {
         
         String creationDateTime = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
         String fileName = config.getBankCode() + "_SP2D_FA_" + creationDateTime + ".out";
-        
-        //String outputDir = "C:/Users/ven.arya/Downloads/Project/2026/SPAN/Custom Handler/put";
-        
         String outputDir = config.getPathBo2spanHome() + config.getPathSpanAcknowledgePut();
         String outputPath = outputDir + File.separator + fileName;
         String currentDate =new SimpleDateFormat("yyyy-MM-dd").format(new Date());
@@ -41,7 +32,6 @@ public class GenerateAckOut {
         try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputPath)))) {
            for (SpanSp2dPosting row : rows) {
                 ReturnStatusAck ack = statusAckMap.get(row.returnCode);
-                
                 String code = ack != null ? Utillity.safe(ack.code)  : "";
                 String ackDesc = ack != null ? Utillity.safe(ack.description)  : "";
                 String description="";
@@ -90,7 +80,6 @@ public class GenerateAckOut {
         if (!source.exists()) return;
 
         String archiveDir  = ctx.getPathBo2spanHome() + ctx.getpathSpanAcknowledgeArchive();
-        //String   archiveDir  ="C:/Users/ven.arya/Downloads/Project/2026/SPAN/Custom Handler/archive";
         String  archivePath = archiveDir + File.separator + ctx.getBankCode()+ "_SP2D_FA_" + creationDateTime + ".out";
 
         new File(archiveDir).mkdirs();

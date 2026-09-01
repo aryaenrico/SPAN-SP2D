@@ -5,36 +5,37 @@ import com.bsi.entity.mock.SpanSp2dStageIn;
 import com.bsi.entity.t24.FundsTransferSoapRequest;
 import com.bsi.entity.t24.FundsTransferSoapResponse;
 import com.bsi.utility.RequestIdGenerator;
+import com.bsi.utility.Utillity;
 
 public class ProsesRetur {
     
     private T24Config configT24;
-    private T24Client t24Client = new T24Client(configT24);
+    private T24Client t24Client;
 
     public ProsesRetur(T24Config t24Config){
-      this.configT24 =t24Config;
+
+        this.configT24 =t24Config;
+        this.t24Client = new T24Client(configT24);
     }
     
     
     public FundsTransferSoapResponse returProcess(SpanSp2dStageIn item, String debitAcct, String creditAcct,String type) {
-        String transactionType ="";
-       switch (type) {
+       String transactionType ="";
+       switch (Utillity.safe(type.trim().toUpperCase())) {
             case "BO2":
                  transactionType = "ACSR";
                 break;
             default :
                  transactionType = "ACSC";
-                 break;
        }
                      
         FundsTransferSoapRequest ftRequest = new FundsTransferSoapRequest();
-        ftRequest.ofsFunction.messageId = RequestIdGenerator.generateRequestID();
+        ftRequest.ofsFunction.messageId = item.getDocumentNumber();
         FundsTransferSoapRequest.FundsTransferIdiAcctTrfCmsType ft = ftRequest.fundsTransfer;
         ft.transactionType = transactionType;
         ft.debitAccount = debitAcct;
         ft.debitCurrency = item.getCurrencyTarget() != null ? item.getCurrencyTarget() : "IDR";
         ft.debitAmount = item.getAmount().toPlainString();
-        //ft.debitValueDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
  
         ft.creditAccount = creditAcct;
         ft.creditCurrency = ft.debitCurrency;

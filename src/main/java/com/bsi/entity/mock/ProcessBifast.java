@@ -171,6 +171,12 @@ public class ProcessBifast {
         AccountInquiryResponse accountInquiryResponse = null;
 
         try {
+            mariaDb.updateSp2dstagein(item);
+        } catch (SQLException e) {
+            MainCHK.tulisLog("Error saat update status pst pada table stage in " + e.getMessage());
+        }
+
+        try {
             accountInquiryRequest.setBankCode(mariaDb.getBankCode(item.getBeneficiaryBankCode()));
         } catch (SQLException e) {
             MainCHK.tulisLog("Gagal saat mapping bank code untuk document number :" + item.getDocumentNumber());
@@ -249,18 +255,13 @@ public class ProcessBifast {
         boolean isReturCode = accountNoutFound || "78".equals(responseCode);
         boolean isFallbackSkn = "99".equals(responseCode) || !isNameMatched;
 
-        try {
-            MainCHK.tulisLog("Proses Generate Posting");
-            mariaDb.updateSp2dstagein(item);
-        } catch (SQLException e) {
-            MainCHK.tulisLog("Error saat update status pst pada table stage in " + e.getMessage());
-        }
+
 
         MainCHK.tulisLog("Account Inquiry Rsponse Code :  " + accountInquiryResponse.getResponseCode());
         
 
         // Case 1 : Ae dan ct sukses
-        if (accountInquiryResponse.isSuccess() && isAccountValid) {
+        if (accountInquiryResponse.isSuccess() && isAccountValid && isNameMatched) {
             executeCreditTransferFlow(item, mariaDb);
         }
         // case 2 : AE retur 
@@ -274,7 +275,7 @@ public class ProcessBifast {
             if (documentNumberOnTableSp2dBifast == null){
                   mariaDb.insertDataSp2dBfast(item);
                 }
-               mariaDb.handleAccountInquiryErrorRcSpan(item, mappingRcSpan);
+                  mariaDb.handleAccountInquiryErrorRcSpan(item, mappingRcSpan);
             } catch (SQLException e) {
                 MainCHK.tulisLog(e.getMessage());
             }
@@ -381,13 +382,23 @@ public class ProcessBifast {
             MainCHK.tulisLog("Failed Credit transfer: Core Banking Posting failed - error validasi core (RC 05) untuk doc: " + item.getDocumentNumber());
             mariaDb.handleCorePostingFailed(item);
         } 
-        // Skenario 4: Failed Response dari BI-FAST (RC 25) -> Retur FT
+        //  Failed Response dari BI-FAST (RC 25) -> Retur FT
         else if (failedResponseFromCi) {
-            executeTransactionRetur(item, ctResponse, mariaDb);
+
+            SpanSp2dStageIn dataClone = item;
+            dataClone.setReturnCode(ctResponse.getResponseCode());
+            dataClone.setReferenceNumber(ctResponse.getReferenceId());
+
+            mariaDb.updateErrorDataForReturProcess(dataClone);
+            executeTransactionRetur(dataClone, mariaDb);
         }
         else if (isBeneficiaryDormant) {
             MainCHK.tulisLog("Failed CT: Account Inactive/Dormant (RC 78) untuk doc: " + item.getDocumentNumber() + ". Melakukan proses retur FT.");
-            executeTransactionRetur(item, ctResponse, mariaDb);
+            SpanSp2dStageIn dataClone = item;
+            dataClone.setReturnCode(ctResponse.getResponseCode());
+            dataClone.setReferenceNumber(ctResponse.getReferenceId());
+
+            executeTransactionRetur(dataClone, mariaDb);
         }
     }
 
@@ -438,7 +449,6 @@ public class ProcessBifast {
         } else {
             MainCHK.tulisLog("Gagal retur AE, update status agar diproses scheduler retry");
             try {
-                // hardcode dulu string kosong nya 
                 mariaDb.updateStatusForRetryRetur(item,"SR011");
             } catch (SQLException e) {
                 MainCHK.tulisLog("Error update status retry retur: " + e.getMessage());
@@ -531,7 +541,6 @@ public class ProcessBifast {
     public void handleCreditTransferTimeout(SpanSp2dStageIn item, CreditTransferResponse cTransferResponse, ServiceMariaDb mariaDb) {
         try {
             MainCHK.tulisLog("Memproses Status Payment Request untuk doc : " + item.getDocumentNumber() + " [code=" + item.getReturnCode() + "]");
-
             PaymenStatusRequest tiRequest = buildPaymentStatusRequest(item);
             try{
                 tiRequest.setEndToEndId(mariaDb.getDataEndToEndId(item.getDocumentNumber()));
@@ -545,15 +554,18 @@ public class ProcessBifast {
             } catch (ApiClientException e) {
                 if (e.isNetworkTimeout()) {
                     MainCHK.tulisLog("Network timeout saat get status inquiry: " + e.getMessage());
+                    
                     int counterUpdate = mariaDb.getNumRetryStatus(item) + 1;
                         if (counterUpdate == 5){
-                        CreditTransferResponse ctResponse = new CreditTransferResponse();
+                         CreditTransferResponse ctResponse = new CreditTransferResponse();
                         ctResponse.setResponseCode("000");
                         ctResponse.setReferenceId(item.getReferenceNumber());
                         mariaDb.postingMessageAfterCt(item, ctResponse);
                         mariaDb.prosesAck(item);
-                        } else {
-                        mariaDb.initiateRetryCheckStatus(item);
+                        } else if (counterUpdate == 1 ) {
+                        SpanSp2dStageIn data =item;
+                        data.setReferenceNumber(cTransferResponse.getReferenceId());
+                        mariaDb.initiateRetryCheckStatus(data);
                         }
                         MainCHK.tulisLog("Increment counter PSR");
                         mariaDb.increaseCounterCheckstatusBifast(item, counterUpdate);
@@ -569,12 +581,12 @@ public class ProcessBifast {
                 MainCHK.tulisLog("Menerima Response Get Status: Code=" + tiResponse.getResponseCode() + ", Message=" + tiResponse.getResponseMessage());
 
                 if (tiResponse.isSuccess()) {
-                    MainCHK.tulisLog("Get status SUKSES. Melakukan posting & ACK sukses untuk doc: " + item.getDocumentNumber());
+                    MainCHK.tulisLog("Get status sukses. Melakukan posting & ACK sukses untuk doc: " + item.getDocumentNumber());
                     try {
                         CreditTransferResponse ctResponse = new CreditTransferResponse();
                         ctResponse.setResponseCode("000");
                         // harus di cek
-                        ctResponse.setReferenceId(cTransferResponse.getReferenceId());
+                        ctResponse.setReferenceId(item.getReferenceNumber());
                         mariaDb.postingMessageAfterCt(item, ctResponse);
                         mariaDb.prosesAck(item);
                     } catch (SQLException e) {
@@ -592,8 +604,10 @@ public class ProcessBifast {
                         ctResponse.setReferenceId(item.getReferenceNumber());
                         mariaDb.postingMessageAfterCt(item, ctResponse);
                         mariaDb.prosesAck(item);
-                        } else {
-                        mariaDb.initiateRetryCheckStatus(item);
+                        } else if (counterUpdate == 1 ) {
+                          SpanSp2dStageIn data =item;
+                          data.setReferenceNumber(cTransferResponse.getReferenceId());
+                          mariaDb.initiateRetryCheckStatus(data);
                         }
                         MainCHK.tulisLog("Increment counter");
                         mariaDb.increaseCounterCheckstatusBifast(item, counterUpdate);
@@ -605,28 +619,26 @@ public class ProcessBifast {
                 } else {
                     MainCHK.tulisLog("Get status GAGAL/NOT FOUND [ResponseCode=" + tiResponse.getResponseCode() + ", Message=" + tiResponse.getResponseMessage() + "]. Melakukan proses retur & ACK gagal.");
                     try {
-                        CreditTransferResponse failResponse = (cTransferResponse != null) ? cTransferResponse : new CreditTransferResponse();
-                        if (failResponse.getResponseCode() == null) {
-                            failResponse.setResponseCode(tiResponse.getResponseCode() != null ? tiResponse.getResponseCode() : "25");
-                        }
-                        executeTransactionRetur(item, failResponse, mariaDb);
+                        executeTransactionRetur(item, mariaDb);
                     } catch (SQLException e) {
                         MainCHK.tulisLog("Error proses retur/ACK gagal setelah get status: " + e.getMessage());
                     }
                 }
             } else {
-                MainCHK.tulisLog("Status Inquiry tidak mendapat respon / Network Timeout. Increament retry counter.");
+                MainCHK.tulisLog("Status PSR tidak mendapat respon / Network Timeout. Increament retry counter.");
                 try {
                     int counterUpdate = mariaDb.getNumRetryStatus(item) + 1;
                     MainCHK.tulisLog("Counter retry check status sekarang: " + counterUpdate);
                     if (counterUpdate == 5){
                         CreditTransferResponse ctResponse = new CreditTransferResponse();
                         ctResponse.setResponseCode("000");
-                        ctResponse.setReferenceId("FT DUMMY TOBE NYA HARUS DARI ESB ");
+                        ctResponse.setReferenceId(item.getReferenceNumber());
                         mariaDb.postingMessageAfterCt(item, ctResponse);
                         mariaDb.prosesAck(item);
-                        }else {
-                        mariaDb.initiateRetryCheckStatus(item);
+                        }else if (counterUpdate == 1) {
+                          SpanSp2dStageIn data =item;
+                          data.setReferenceNumber(cTransferResponse.getReferenceId());
+                          mariaDb.initiateRetryCheckStatus(data);
                         }
                         MainCHK.tulisLog("Increment counter");
                         mariaDb.increaseCounterCheckstatusBifast(item, counterUpdate);
@@ -640,8 +652,8 @@ public class ProcessBifast {
         }
     }
 
-    private void executeTransactionRetur(SpanSp2dStageIn item, CreditTransferResponse ctResponse, ServiceMariaDb mariaDb) throws SQLException {
-        MainCHK.tulisLog("Execute retur process");
+    private void executeTransactionRetur(SpanSp2dStageIn item, ServiceMariaDb mariaDb) throws SQLException {
+        MainCHK.tulisLog("Initiate proses retur ke core banking untuk data sp2d dengan dokumen number "+item.getDocumentNumber());
         String debitAccount = mariaDb.getSpanconfig().getAcctIaKewajibanBifast();
         String creditAccount;
         String transactionType = Utillity.getTransactionType(item, mariaDb.getSpanconfig());
@@ -658,11 +670,11 @@ public class ProcessBifast {
                 break;
         }
         
-           ProsesRetur prosesRetur = new ProsesRetur(configT24);
+          ProsesRetur prosesRetur = new ProsesRetur(configT24);
           FundsTransferSoapResponse resp = prosesRetur.returProcess(item, debitAccount, creditAccount, transactionType);
 
         if (resp != null && resp.isSuccess()) {
-            MainCHK.tulisLog("Sukses retur pada T24, Transaction ID: " + resp.getTransactionId());
+            MainCHK.tulisLog("Sukses retur pada T24, Transaction ID: " + resp.getTransactionId() + "Untuk dokumen number " + item.getDocumentNumber());
             SpanSp2dStageIn dataRetur = cloneItemForRetur(item);
 
             dataRetur.setBeneficiaryAccount(creditAccount);
@@ -672,12 +684,10 @@ public class ProcessBifast {
             dataRetur.setAgentBankAccountName("IA KEWAJIBAN BIFAST");
             dataRetur.setDescription("Retur Transaksi");
 
-            mariaDb.insertPostingCtFailure(item, ctResponse);
+            mariaDb.insertPostingCtFailure(item);
             mariaDb.insertReturDatainPostingTable(dataRetur, resp);
             MainCHK.tulisLog("Data Status : " +item.getStatus());
             mariaDb.prosesAckRetur(item.getDocumentNumber());
-
-            
 
             switch (item.getStatus().trim().toUpperCase()) {
                  case "RRS-000":
@@ -694,22 +704,19 @@ public class ProcessBifast {
              }
             
         } else {
-            MainCHK.tulisLog("Gagal retur CT pada Core T24!");
+            MainCHK.tulisLog("Gagal retur CT pada Core T24! dengan response dari core"+ resp.status.toString() + "untuk document number : "+item.getDocumentNumber());
             if (resp == null) {
                 mariaDb.updateStatusForRetryRetur(item ,"SR019");
             } else {
-                MainCHK.tulisLog(resp.toString());
                 if (resp.status != null && resp.status.messages != null && !resp.status.messages.isEmpty()) {
-                    MainCHK.tulisLog("Retur posting failed dari Core Banking untuk doc: " + item.getDocumentNumber());
-                    MainCHK.tulisLog("Dengan error message" + resp.status.toString());
-                    mariaDb.updateStatusForRetryRetur(item ,"SR011");
+                    if (resp.status.transactionId != null && resp.status.successIndicator.equalsIgnoreCase("T24Error")){
+                        mariaDb.updateStatusForRetryRetur(item ,"SR011");
+                    }else if (resp.status.messages.get(0).equalsIgnoreCase("TAFJERR-1060: Session Expiration") && resp.status.successIndicator.equalsIgnoreCase("T24Error")){
+                        mariaDb.updateStatusForRetryRetur(item ,"SR019");
+                    }
+
                 } else {
                     MainCHK.tulisLog("Retur gagal tanpa error message (kemungkinan timeout partial) untuk doc: " + item.getDocumentNumber());
-                    try {
-                        mariaDb.handleTimeoutCoreProcess(item);
-                    } catch (SQLException sqlEx) {
-                        MainCHK.tulisLog("Error update timeout core saat retur: " + sqlEx.getMessage());
-                    }
                     mariaDb.updateStatusForRetryRetur(item , "SR019");
                 }
             }
@@ -725,7 +732,7 @@ public class ProcessBifast {
         return true;
     }
 
-    // GAP 7: Method scheduler untuk memproses ulang data berstatus RGS-000 (Status Inquiry Retry)
+    // Method scheduler untuk memproses ulang data berstatus RGS-000 (PSR process)
     public void prosesTimeoutCtBifast(List<SpanSp2dStageIn> processData) {
         MainCHK.tulisLog("Scheduler get payment status dijalankan. Jumlah data: " + processData.size());
         if (processData == null || processData.isEmpty()) {
@@ -769,6 +776,14 @@ public class ProcessBifast {
                      MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread selesai (Koneksi DB ditutup).");
             });
 
+            executor.shutdown();
+            try {
+                executor.awaitTermination(2, TimeUnit.HOURS);
+            } catch (InterruptedException e) {
+                MainCHK.tulisLog("[MULTI-THREAD] Interrupted saat menunggu worker threads: " + e.getMessage());
+                Thread.currentThread().interrupt();
+            }
+
         }
         
     }
@@ -799,10 +814,8 @@ public class ProcessBifast {
                  while((item = taskQueue.poll())!= null){
                     int count =processedCount.incrementAndGet();
                     MainCHK.tulisLog("[WORKER-" + thread + "] Memproses document: " + item.getDocumentNumber() + " (" + count + "/" + totalData + ")");
-                    CreditTransferResponse ctResponse  = new CreditTransferResponse();
-                    ctResponse.setResponseCode(item.getReturnCode());
                     try {
-                     executeTransactionRetur(item, ctResponse, threadMariaDb);
+                     executeTransactionRetur(item,threadMariaDb);
                     } catch (SQLException e){
                         MainCHK.tulisLog("Error saat pemanggilan awal proses retur" + e.getMessage());
                     }
@@ -852,10 +865,9 @@ public class ProcessBifast {
                  while((item = taskQueue.poll())!= null){
                     int count =processedCount.incrementAndGet();
                     MainCHK.tulisLog("[WORKER-" + thread + "] Memproses document: " + item.getDocumentNumber() + " (" + count + "/" + totalData + ")");
-                    CreditTransferResponse ctResponse  = new CreditTransferResponse();
-                    ctResponse.setResponseCode(item.getReturnCode());
+
                     try {
-                     executeTransactionRetur(item, ctResponse, threadMariaDb);
+                     executeTransactionRetur(item, threadMariaDb);
                     } catch (SQLException e){
                         MainCHK.tulisLog("Error saat pemanggilan awal proses retur" + e.getMessage());
                     }
