@@ -19,7 +19,7 @@ public class BifastDemo {
      /*
         try{
            
-            PathPropertiesBifast pathPropertiesBifast = new PathPropertiesBifast("C:\\Users\\ven.arya\\Downloads\\Project\\2026\\SPAN\\Custom Handler\\span-custom-handler\\tesDs","bo2span");
+        PathPropertiesBifast pathPropertiesBifast = new PathPropertiesBifast("C:\\Users\\ven.arya\\Downloads\\Project\\2026\\SPAN\\Custom Handler\\span-custom-handler\\tesDs","bo2span");
             
         String configFilePath = pathPropertiesBifast.getPathProp() + (pathPropertiesBifast.getPathProp().endsWith("/") || pathPropertiesBifast.getPathProp().endsWith("\\") ? "" : File.separator) + pathPropertiesBifast.getPropName() + ".properties";
        System.out.println(configFilePath);

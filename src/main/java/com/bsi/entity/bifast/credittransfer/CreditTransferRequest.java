@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 public class CreditTransferRequest {
     
     private String requestId;
+    private String twsMsgId;
     private String requestDate;
     private String channelType;
     private String categoryPurposeCode;
@@ -30,6 +31,9 @@ public class CreditTransferRequest {
 
     public String getRequestId() { return requestId; }
     public void setRequestId(String requestId) { this.requestId = requestId; }
+
+    public String getTwsMsgId() { return this.twsMsgId; }
+    public void setTwsMsgId(String twsMsgId) { this.twsMsgId = twsMsgId; }
 
     public String getRequestDate() { return requestDate; }
     public void setRequestDate(String requestDate) { this.requestDate = requestDate; }

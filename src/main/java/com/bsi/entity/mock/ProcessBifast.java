@@ -11,6 +11,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.log4j.chainsaw.Main;
+
 import com.bsi.MainCHK;
 import com.bsi.config.BifastConfig;
 import com.bsi.config.T24Config;
@@ -163,9 +166,7 @@ public class ProcessBifast {
 
     //  Ekstraksi pemrosesan single item dengan instance mariaDb dedicated per-thread (Tanpa Synchronized)
     public void processSingleItem(SpanSp2dStageIn item, Map<String, BifastRcMapping> mappingRcAe, ServiceMariaDb mariaDb) {
-        System.out.println("========================================");
-        System.out.println("Processing : " + item.getBeneficiaryAccount());
-
+        
         // ACCOUNT INQUIRY
         AccountInquiryRequest accountInquiryRequest = buildAccountInquiryRequest(item);
         AccountInquiryResponse accountInquiryResponse = null;
@@ -405,6 +406,16 @@ public class ProcessBifast {
 
     private void executeAccountInquiryReturFlow(SpanSp2dStageIn item, AccountInquiryResponse inquiryResponse, ServiceMariaDb mariaDb,String rcSpan) {
         MainCHK.tulisLog("Account Inquiry retur process initiated");
+        SpanSp2dStageIn dataClone = item;
+        dataClone.setReturnCode(inquiryResponse.getResponseCode());
+        
+        
+        try{
+         mariaDb.updateRetrunCodeForReturProcess(dataClone);
+        } catch(SQLException  e){
+            MainCHK.tulisLog("Error update return code untuk sp2d dengan  documentNumber : " +  item.getDocumentNumber());
+        }
+        
 
         String debitAccount = Utillity.safe(item.getAgentBankAccountNumber());
         String creditAccount="";
@@ -482,6 +493,7 @@ public class ProcessBifast {
         CreditTransferRequest ctRequest = new CreditTransferRequest();
         ctRequest.setRequestId(RequestIdGenerator.generateRequestID());
         ctRequest.setRequestDate(RequestIdGenerator.currentRequestDate());
+        ctRequest.setTwsMsgId(item.getDocumentNumber());
         ctRequest.setChannelType("99");
         ctRequest.setCategoryPurposeCode("03");
         ctRequest.setInterbankSettlementAmount(item.getAmount().toString());
@@ -727,7 +739,6 @@ public class ProcessBifast {
     private Boolean isRc25ForAccountnotFound(String responseMessage, Map<String ,BifastRcMapping> map) {
         String bifastDescription  = getBifastDescription("25", responseMessage, map);
         if (Utillity.safe(bifastDescription).matches(".*U17[0-9X].*")){
-            MainCHK.tulisLog("Masuk sini ");
            return false;
         }
         return true;

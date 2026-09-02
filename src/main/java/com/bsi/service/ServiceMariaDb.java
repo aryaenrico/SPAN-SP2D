@@ -887,6 +887,24 @@ public class ServiceMariaDb {
         }
     }
 
+      public void updateRetrunCodeForReturProcess(SpanSp2dStageIn records) throws SQLException {
+        String sql =  "UPDATE span_sp2d_stage_in SET  " +
+                "return_code = ? WHERE documentnumber = ? "+
+                "AND paymentmethod ='5'";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, records.getReturnCode());
+            ps.setString(2, records.getDocumentNumber());
+
+            int row = ps.executeUpdate();
+
+            if (row > 0){
+                MainCHK.tulisLog("update data pada table stagein untuk proses retur berhasil untuk documentNumber"+records.getDocumentNumber());
+            }else{
+                MainCHK.tulisLog("update data pada table stagein untuk proses retur gagal untuk documentNumber"+records.getDocumentNumber());
+            }
+        }
+    }
+
 
 
 
@@ -1103,7 +1121,7 @@ public class ServiceMariaDb {
             ps.setString(2, item.getDocumentNumber());
             int updated = ps.executeUpdate();
             if (updated > 0) {
-                MainCHK.tulisLog("Updated bifast_response_code ' pada span_sp2d_stage_in untuk doc: " + item.getDocumentNumber());
+                MainCHK.tulisLog("Updated bifast_response_code  pada span_sp2d_stage_in untuk doc: " + item.getDocumentNumber());
             } else {
                 MainCHK.tulisLog("Gagal update bifast_response_code untuk doc: " + item.getDocumentNumber());
             }
@@ -1235,10 +1253,10 @@ public class ServiceMariaDb {
             ps.setString(7, sourceRetur);
             MainCHK.tulisLog(ps);
             int rowUpdate = ps.executeUpdate();
-            if (rowUpdate == 0){
-                MainCHK.tulisLog("Error update status PST pada document number : "+item.getDocumentNumber());
+            if (rowUpdate > 0){
+               MainCHK.tulisLog("terdapat "+rowUpdate+" Data yang terupdate menjadi "+statusReadyPosting);
             }else {
-                MainCHK.tulisLog("terdapat "+rowUpdate+" Data yang terupdate menjadi "+statusReadyPosting);
+               MainCHK.tulisLog("Error update status PST pada document number : "+item.getDocumentNumber());
             }
         }
     }
@@ -1319,15 +1337,12 @@ public class ServiceMariaDb {
    }
     public void increaseCounterCheckstatusBifast(SpanSp2dStageIn item , int counter ) throws SQLException{
         
-        String sqlUpdate = "UPDATE span_sp2d_stage_in set retry_bifast_status = ? " +
-                           "WHERE documentnumber = ? "+
-                           "AND paymentmethod = '5' " +
-                           "AND status = ? ";           
+        String sqlUpdate = "UPDATE span_sp2d_bifast_data set retry_bifast_status = ? " +
+                           "WHERE document_number = ? ";        
          
         try(PreparedStatement psUpdate = conn.prepareStatement(sqlUpdate)){
                psUpdate.setInt(1, counter);
                psUpdate.setString(2,item.getDocumentNumber());
-               psUpdate.setString(3, statusTimeoutCreditTransferBifast);
                psUpdate.executeUpdate();
          }
     }
@@ -1649,8 +1664,7 @@ public class ServiceMariaDb {
 
    }
 
-   
- 
+
    public void insertReturDatainPostingTable(SpanSp2dStageIn stageIn, FundsTransferSoapResponse response) throws SQLException{
     try{
 
@@ -1686,7 +1700,7 @@ public class ServiceMariaDb {
 
         //return code yang awalnya dari core menjadi dari balikan response tws
         if (response.isSuccess()){
-          rec.returnCode= "000";
+          rec.returnCode= "400";
           rec.referenceNumber = response.getTransactionId();
         }else {
           rec.returnCode= response.getTransactionId();
