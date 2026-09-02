@@ -472,8 +472,12 @@ public static String extractBifastDescription (String bifastDescription) {
 
     public static String insertAuditTrail(){
         return "INSERT INTO span_sp2d_bifast_audit_trail "+
-               "(document_number,activity_id,user_id,user_email,old_value,new_value,created_at) "+
-               " VALUES (?,?,?,?,?,?,?)";
+               "(document_number,activity_id,user_id,old_value,new_value,created_at) "+
+               " VALUES (?,?,?,?,?,?)";
+    }
+
+    public static String getIdUser(){
+        return "SELECT id FROM users  WHERE email = ? and name = ? ";
     }
 
     public static String getDataBifastByDocumentNumber(){

@@ -284,6 +284,7 @@ public class ProcessBifast {
         else if (isFallbackSkn) {
             try {
                 mariaDb.fallbackToSkn(item);
+                mariaDb.insertAuditTrailFallbackSkn(item);
             } catch (SQLException e) {
                 MainCHK.tulisLog(e.getMessage());
             }

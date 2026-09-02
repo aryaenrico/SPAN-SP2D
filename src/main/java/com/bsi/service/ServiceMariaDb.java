@@ -452,7 +452,7 @@ public class ServiceMariaDb {
         executeUpdateStatusForIncludeBalance(accountNumber,statusReadyProsesBifast,statusWaitingDroppingBifast);
     }
     public List<SpanSp2dStageIn> getDataBifast(String activities) throws SQLException{
-
+        
         // default use account non gaji 
          String sourceAccount="";
          String sourceRetur="";
@@ -492,7 +492,7 @@ public class ServiceMariaDb {
         try(PreparedStatement ps = conn.prepareStatement(sql)){
              ps.setString(1, spanConfig.getAppDate());
              ps.setString(2, statusReadyProsesBifast);
-             MainCHK.tulisLog(ps);
+            
             try(ResultSet rs = ps.executeQuery()){
                 while (rs.next()){
                 int id = rs.getInt("id");
@@ -1915,19 +1915,40 @@ public class ServiceMariaDb {
 
    }
 
+   public int getIdUser() throws SQLException{
+    String sql = Utillity.getIdUser();
+    int result = 0;
+    try(PreparedStatement ps = conn.prepareStatement(sql)){
+        ps.setString(1, "SYSTEM");
+        ps.setString(2, "SYSTEM");
+      try(ResultSet rs = ps.executeQuery()){
+        if (rs.next()){
+            result = rs.getInt("id");
+        }
+      }
+    }
+
+    return result;
+
+   }
+
 
    public void insertAuditTrailFallbackSkn(SpanSp2dStageIn item)throws SQLException{
     String sql  = Utillity.insertAuditTrail();
-    try(PreparedStatement ps = conn.prepareStatement(sql)){
+    int id_user = getIdUser();
+    if (id_user != 0){
+      try(PreparedStatement ps = conn.prepareStatement(sql)){
         ps.setString(1, item.getDocumentNumber());
         ps.setInt(2, 1);
-        ps.setInt(3, 0);
-        ps.setString(4, "SYSTEM");
-        ps.setString(5, "status:PST-000|payment_method:5");
-        ps.setString(6, "status:UPL-000|payment_method:2");
-        ps.setTimestamp(7, new Timestamp(System.currentTimeMillis()));
-
+        ps.setInt(3, id_user);
+        ps.setString(4, "status:PST-000|payment_method:5");
+        ps.setString(5, "status:UPL-000|payment_method:2");
+        ps.setTimestamp(6, new Timestamp(System.currentTimeMillis()));
         ps.executeUpdate();
     }
+   } else{
+       MainCHK.tulisLog("terdapat kesalahan dalam get id user system");
    }
+}
+    
 }
