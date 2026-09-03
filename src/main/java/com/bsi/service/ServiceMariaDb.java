@@ -876,6 +876,7 @@ public class ServiceMariaDb {
 
             ps.setString(1, records.getReferenceNumber());
             ps.setString(2, records.getReturnCode());
+            ps.setString(3, records.getDocumentNumber());
 
             int row = ps.executeUpdate();
 

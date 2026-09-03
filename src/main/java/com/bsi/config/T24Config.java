@@ -11,8 +11,8 @@ public class T24Config {
 
     private String endpointUrl = "http://apigw-uat-cbs-corp.bankbsi.co.id:4015/ws/coreR24AllServices/1.0";   
     private String soapAction = "";
-    private String apiKey ="48578186-b7c9-4520-8a5e-bde96c8c8ab5";
-    private static String DEFAULT_PROPERTIES ="t24.properties";
+    private String apiKey ="";
+    private static String DEFAULT_PROPERTIES ="";
 
     private String userName;
     private String password;

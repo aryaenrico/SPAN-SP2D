@@ -322,6 +322,7 @@ public class ProcessBifast {
             ctRequest.setBankCode(mariaDb.getBankCode(item.getBeneficiaryBankCode()));
         } catch (SQLException e) {
             MainCHK.tulisLog("Gagal saat mapping bank code untuk document number :" + item.getDocumentNumber());
+            e.printStackTrace();
             return;
         }
         try {
@@ -355,6 +356,7 @@ public class ProcessBifast {
             }
         } catch (Exception e) {
             MainCHK.tulisLog("Error pada alur Credit Transfer: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -386,8 +388,13 @@ public class ProcessBifast {
         } 
         //  Failed Response dari BI-FAST (RC 25) -> Retur FT
         else if (failedResponseFromCi) {
-
             SpanSp2dStageIn dataClone = item;
+            String responseMessage = ctResponse.getResponseMessage().trim().toUpperCase();
+            
+            if (responseMessage.contains("78")){
+               dataClone.setReturnCode("78");
+            }
+            
             dataClone.setReturnCode(ctResponse.getResponseCode());
             dataClone.setReferenceNumber(ctResponse.getReferenceId());
 
