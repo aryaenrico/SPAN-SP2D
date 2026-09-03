@@ -1635,7 +1635,17 @@ public class ServiceMariaDb {
         }
     }
 
-   public void updateStatusForRetryRetur(SpanSp2dStageIn rec , String mappingRc) throws SQLException{
+    public void updateStatusBifastDataToSucces(SpanSp2dStageIn rec , String mappingRc) throws SQLException{
+      String sql = Utillity.updateStatusSuccessOnSpanSp2dBifastData(); 
+      try (PreparedStatement ps = conn.prepareStatement(sql)){
+        ps.setString(1, mappingRc);
+        ps.setString(2, rec.getDocumentNumber());
+        ps.executeUpdate();
+
+      }
+
+    }
+    public void updateStatusForRetryRetur(SpanSp2dStageIn rec , String mappingRc) throws SQLException{
         String sql =Utillity.updateStatusForRetryRetur("span_sp2d_stage_in");
         //Map<String, BifastRcMapping> map = Utillity.fetchBifastRcMappingRetur(conn);
 

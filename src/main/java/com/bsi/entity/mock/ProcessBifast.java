@@ -34,6 +34,8 @@ import com.bsi.service.T24Client;
 import com.bsi.utility.RequestIdGenerator;
 import com.bsi.utility.Utillity;
 
+import oracle.net.aso.m;
+
 public class ProcessBifast {
 
     // [IMPROVEMENT][2026-08-11] Path & PropName dinamis dengan fallback ke Environment Variables
@@ -722,7 +724,11 @@ public class ProcessBifast {
                  default:
                      mariaDb.finalizeSuccessRecordsAfterGetStatus(item);
              }
-            
+             String documentNumberOnTableSp2dBifast =mariaDb.getDataSp2dBifast(item.getDocumentNumber());
+                 if (documentNumberOnTableSp2dBifast == null){
+                      mariaDb.insertDataSp2dBfast(item);
+                }
+             mariaDb.updateStatusBifastDataToSucces(item,"SR000");
         } else {
             MainCHK.tulisLog("Gagal retur CT pada Core T24! dengan response dari core"+ resp.status.toString() + "untuk document number : "+item.getDocumentNumber());
             if (resp == null) {

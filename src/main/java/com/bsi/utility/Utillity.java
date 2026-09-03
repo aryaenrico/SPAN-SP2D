@@ -518,4 +518,9 @@ public static String extractBifastDescription (String bifastDescription) {
 
          return result;
      }
+
+     public static String updateStatusSuccessOnSpanSp2dBifastData(){
+        return "UPDATE span_sp2d_bifast_data set bifast_response_code = ? " +
+               "WHERE document_number = ? ";
+     }
 }
