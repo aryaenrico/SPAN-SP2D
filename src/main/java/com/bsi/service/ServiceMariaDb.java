@@ -778,13 +778,14 @@ public class ServiceMariaDb {
         ReturnStatusAck ack = map_status_code.get(stageIn.getReturnCode());
 
         if (ack == null){
-            MainCHK.tulisLog("Mappign ack belum tersedia saat proses gagal ct untuk response esb :"+stageIn.getReturnCode());
+            MainCHK.tulisLog("Mapping ack belum tersedia saat proses gagal ct untuk response esb :"+stageIn.getReturnCode());
             return;
         }
 
         SpanSp2dPosting rec = constructDataForposting(stageIn,ack);
         rec.referenceNumber =stageIn.getReferenceNumber();
         rec.returnCode = stageIn.getReturnCode();
+
         insertPostingRecords(rec);
     }
    
@@ -800,8 +801,9 @@ public class ServiceMariaDb {
         "amount, currencytarget, description, agentbankcode, " +
         "agentbankaccountnumber, agentbankaccountname, emailaddress, swiftcode, ibancode, " +
         "paymentmethod, date_posting, reference_number, return_code, status, " +
-        "reject_status, reject_date, sp2dcount, totalcount, totalamount, totalbatchcount, sp2d_number" +
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        "reject_status, reject_date, sp2dcount, totalcount, totalamount, totalbatchcount, sp2d_number , flag_ack ," +
+        "beneficiarybankcode , beneficiarybank"+
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             MainCHK.tulisLog("Proses insert tabel posting ");
@@ -838,6 +840,9 @@ public class ServiceMariaDb {
             ps.setObject(31, r.totalAmount);
             ps.setObject(32, r.totalBatchCount);
             ps.setString(33, Utillity.safe(r.sp2dNumber));
+            ps.setString(34, r.flagAck);
+            ps.setString(35, r.beneficiaryBankCode);
+            ps.setString(36, r.beneficiaryBank);
     
             int row =ps.executeUpdate();
          
@@ -1730,6 +1735,8 @@ public class ServiceMariaDb {
             rec.rejectStatus = null;
             rec.rejectDate = null; 
         }
+
+        rec.flagAck = "Y";
 
         insertPostingRecords(rec);
         

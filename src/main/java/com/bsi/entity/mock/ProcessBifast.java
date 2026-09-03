@@ -392,12 +392,13 @@ public class ProcessBifast {
         else if (failedResponseFromCi) {
             SpanSp2dStageIn dataClone = item;
             String responseMessage = ctResponse.getResponseMessage().trim().toUpperCase();
-            
+            dataClone.setReturnCode(ctResponse.getResponseCode());
             if (responseMessage.contains("78")){
+                 MainCHK.tulisLog("account inactive");
                dataClone.setReturnCode("78");
             }
             
-            dataClone.setReturnCode(ctResponse.getResponseCode());
+            
             dataClone.setReferenceNumber(ctResponse.getReferenceId());
 
             mariaDb.updateErrorDataForReturProcess(dataClone);
@@ -704,11 +705,10 @@ public class ProcessBifast {
 
             // confirm value nya apa
             dataRetur.setAgentBankAccountName("IA KEWAJIBAN BIFAST");
-            dataRetur.setDescription("Retur Transaksi");
+          
 
             mariaDb.insertPostingCtFailure(item);
             mariaDb.insertReturDatainPostingTable(dataRetur, resp);
-            MainCHK.tulisLog("Data Status : " +item.getStatus());
             mariaDb.prosesAckRetur(item.getDocumentNumber());
 
             switch (item.getStatus().trim().toUpperCase()) {
@@ -721,8 +721,9 @@ public class ProcessBifast {
                 case "PST-000":
                      mariaDb.finalizeSuccessRecords(item);
                      break;
-                 default:
+                case "RGS-000":
                      mariaDb.finalizeSuccessRecordsAfterGetStatus(item);
+                     break;
              }
              String documentNumberOnTableSp2dBifast =mariaDb.getDataSp2dBifast(item.getDocumentNumber());
                  if (documentNumberOnTableSp2dBifast == null){

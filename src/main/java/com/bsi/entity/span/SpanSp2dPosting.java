@@ -40,5 +40,6 @@ public class SpanSp2dPosting {
         public BigDecimal totalAmount;
         public int totalCount;
         public int sp2dCount;
+        public String flagAck;
 
 }

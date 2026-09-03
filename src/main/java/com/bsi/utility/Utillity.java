@@ -308,6 +308,8 @@ public static String extractBifastDescription (String bifastDescription) {
        rec.totalBatchCount = stageIn.getTotalBatchCount();
        rec.sp2dNumber = stageIn.getSp2dNumber();
        rec.paymentMethod = stageIn.getPaymentMethod();
+       rec.beneficiaryBank = stageIn.getBeneficiaryBank();
+       rec.beneficiaryBankCode = stageIn.getAgentBankCode();
       return rec; 
    }
    
