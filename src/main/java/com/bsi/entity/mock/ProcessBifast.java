@@ -372,10 +372,12 @@ public class ProcessBifast {
 
         // Skenario 1: Timeout BI-FAST Hub (RC 51)
         if (timeoutFromCi) {
-            mariaDb.handleResponseTimeoutFromCi(item ,ctResponse);
-            int numOfRetryStatus = mariaDb.getNumRetryStatus(item);
+            SpanSp2dStageIn dataClone = item;
+            dataClone.setReferenceNumber(ctResponse.getReferenceId());
+            mariaDb.handleResponseTimeoutFromCi(dataClone ,ctResponse);
+            int numOfRetryStatus = mariaDb.getNumRetryStatus(dataClone);
             if (numOfRetryStatus < 5) {
-                handleCreditTransferTimeout(item, ctResponse, mariaDb);
+                handleCreditTransferTimeout(dataClone, mariaDb);
             }
         } 
         // Skenario 2: Failed Credit transfer (Timeout from Core Banking FT Processing) RC 57
@@ -561,7 +563,7 @@ public class ProcessBifast {
         );
     }
 
-    public void handleCreditTransferTimeout(SpanSp2dStageIn item, CreditTransferResponse cTransferResponse, ServiceMariaDb mariaDb) {
+    public void handleCreditTransferTimeout(SpanSp2dStageIn item, ServiceMariaDb mariaDb) {
         try {
             MainCHK.tulisLog("Memproses Status Payment Request untuk doc : " + item.getDocumentNumber() + " [code=" + item.getReturnCode() + "]");
             PaymenStatusRequest tiRequest = buildPaymentStatusRequest(item);
@@ -586,9 +588,7 @@ public class ProcessBifast {
                         mariaDb.postingMessageAfterCt(item, ctResponse);
                         mariaDb.prosesAck(item);
                         } else if (counterUpdate == 1 ) {
-                        SpanSp2dStageIn data =item;
-                        data.setReferenceNumber(cTransferResponse.getReferenceId());
-                        mariaDb.initiateRetryCheckStatus(data);
+                        mariaDb.initiateRetryCheckStatus(item);
                         }
                         MainCHK.tulisLog("Increment counter PSR");
                         mariaDb.increaseCounterCheckstatusBifast(item, counterUpdate);
@@ -628,14 +628,10 @@ public class ProcessBifast {
                         mariaDb.postingMessageAfterCt(item, ctResponse);
                         mariaDb.prosesAck(item);
                         } else if (counterUpdate == 1 ) {
-                          SpanSp2dStageIn data =item;
-                          data.setReferenceNumber(cTransferResponse.getReferenceId());
-                          mariaDb.initiateRetryCheckStatus(data);
+                          mariaDb.initiateRetryCheckStatus(item);
                         }
                         MainCHK.tulisLog("Increment counter");
                         mariaDb.increaseCounterCheckstatusBifast(item, counterUpdate);
-                         // 2026-08-06
-                       
                     } catch (SQLException e) {
                         MainCHK.tulisLog("Error update counter retry status: " + e.getMessage());
                     }
