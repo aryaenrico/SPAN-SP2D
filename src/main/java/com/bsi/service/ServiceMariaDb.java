@@ -1147,6 +1147,28 @@ public class ServiceMariaDb {
         }             
   }
 
+  public void handleCreditTransferError(SpanSp2dStageIn item, String responseCode) throws SQLException{
+        Map<String,BifastRcMapping> map = Utillity.fetchBifastRcMappingCt(conn);
+        
+        String rcBifast = map != null ? Utillity.safe(map.get(responseCode).span_rc) : "";
+        MainCHK.tulisLog(rcBifast);
+
+        String sql ="UPDATE span_sp2d_bifast_data " +
+                    "SET bifast_response_code = ? "+
+                    "WHERE document_number = ? ";
+       
+        try (PreparedStatement ps = conn.prepareStatement(sql)){
+            ps.setString(1, rcBifast);
+            ps.setString(2, item.getDocumentNumber());
+            int updated = ps.executeUpdate();
+            if (updated > 0) {
+                MainCHK.tulisLog("Updated bifast_response_code = '" + responseCode + "' pada span_sp2d_stage_in untuk doc: " + item.getDocumentNumber());
+            } else {
+                MainCHK.tulisLog("Gagal update bifast_response_code untuk doc: " + item.getDocumentNumber());
+            }
+        }             
+  }
+
   public void handleAccountInquiryErrorRcSpan(SpanSp2dStageIn item, String rcSpan) throws SQLException{
         
         String sql ="UPDATE span_sp2d_bifast_data " +

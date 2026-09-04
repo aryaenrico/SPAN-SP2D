@@ -338,15 +338,44 @@ public class ProcessBifast {
                 ctResponse = client.creditTransfer(ctRequest);
             } catch (ApiClientException e) {
                 if (e.isNetworkTimeout()) {
-                    MainCHK.tulisLog("Network timeout saat Credit Transfer untuk doc: " + item.getDocumentNumber() + " - " + e.getMessage());
-                    ctResponse = new CreditTransferResponse();
-                    ctResponse.setResponseCode("51");
-                    handleCreditTransferTimeout(item, mariaDb);
-                    return;
+                 try {
+                   String documentNumberOnTable = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
+                    if (documentNumberOnTable == null){
+                    mariaDb.insertDataSp2dBfast(item);
+                    }
+                    mariaDb.handleCreditTransferError(item, "BLANK");
+                 }catch (SQLException sqlEx) {
+                     MainCHK.tulisLog("Error update DB saat CT timeout: " + sqlEx.getMessage());
+                 }
+                   return;
                 } else {
-                    MainCHK.tulisLog("API Client Error saat Credit Transfer: " + e.getMessage());
-                    return;
+              // Pengecekan spesifik untuk HTTP Status Code 404 (Not Found) dan 500 (Internal Server Error)
+                int httpCode = e.getHttpStatus();
+                if (httpCode == 404) {
+                    MainCHK.tulisLog(" Response HTTP 404 (Not Found) saat credit transfer untuk doc: " + item.getDocumentNumber() + " - " + e.getMessage());
+                try {
+                  String documentNumberOnTable = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
+                   if (documentNumberOnTable == null){
+                    mariaDb.insertDataSp2dBfast(item);
                 }
+                    mariaDb.handleCreditTransferError(item, documentNumberOnTable);
+              } catch (SQLException sqlEx) {
+                 MainCHK.tulisLog("Error update DB saat AE HTTP 404: " + sqlEx.getMessage());
+               }
+             } else if (httpCode == 508) {
+                  MainCHK.tulisLog("Response HTTP 508 saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
+              try {
+                   String documentNumberOnTable = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
+                     if (documentNumberOnTable == null){
+                        mariaDb.insertDataSp2dBfast(item);
+                     }
+                   mariaDb.handleCreditTransferError(item, documentNumberOnTable);
+             } catch (SQLException sqlEx) {
+                  MainCHK.tulisLog("Error update DB saat AE HTTP 508: " + sqlEx.getMessage());
+             }
+            }
+               return;
+           }
             }
             if (ctResponse == null) {
                 MainCHK.tulisLog("ct Response null setelah call CT untuk doc: " + item.getDocumentNumber());
