@@ -454,6 +454,15 @@ public static String extractBifastDescription (String bifastDescription) {
                  "AND documentnumber = ? ";
    } 
 
+   public static String finalizeSuccesRecordAfterGetStatus(String sourceAccount , String sourceRetur ){
+    
+      return  "UPDATE span_sp2d_stage_in SET date_posting = ?, status = 'FIN-000' , return_code = '000' " +
+                 "WHERE status = ?  OR status = ? " +
+                 "AND agentbankaccountnumber IN ('" + sourceAccount + "','" + sourceRetur + "') " + 
+                 "AND paymentmethod = '5' " +
+                 "AND documentnumber = ? ";
+   } 
+
 
    public static String getBankCode(){
         return "SELECT participant FROM bank_code_mapping WHERE account_code = ? AND status = 'Active' ";
@@ -521,7 +530,7 @@ public static String extractBifastDescription (String bifastDescription) {
          return result;
      }
 
-     public static String updateStatusSuccessOnSpanSp2dBifastData(){
+     public static String updateStatusSpanSp2dBifastData(){
         return "UPDATE span_sp2d_bifast_data set bifast_response_code = ? " +
                "WHERE document_number = ? ";
      }

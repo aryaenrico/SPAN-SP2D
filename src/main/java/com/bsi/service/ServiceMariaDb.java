@@ -720,6 +720,32 @@ public class ServiceMariaDb {
     } 
     }
 
+        public void postingMessageAfterSuccessGetStatus(SpanSp2dStageIn stageIn, CreditTransferResponse response) throws SQLException {
+     try{
+        
+        Map<String,ReturnStatusAck> map_status_code = Utillity.fetchReturnStatusAck(conn);
+        ReturnStatusAck ack = map_status_code.get(response.getResponseCode());
+
+        SpanSp2dPosting rec = constructDataForposting(stageIn, ack);
+
+        // ft number from response credit transfer
+        rec.referenceNumber = response.getReferenceId();
+
+        rec.returnCode = response.getResponseCode();
+        
+        insertPostingRecords(rec);
+        MainCHK.tulisLog("setelah insert data ke database");
+        if (!rec.returnCode.equals("000")){
+            updateErrorRecords(rec);
+         }else{
+            MainCHK.tulisLog("update harusnya disni");
+           finalizeSuccessRecordsAfterGetStatus(stageIn);
+         }
+    } catch (SQLException e){
+        System.out.println(e.getMessage());
+    } 
+    }
+
     public SpanSp2dPosting constructDataForposting(SpanSp2dStageIn stageIn ,ReturnStatusAck ack){
 
         String transactionType = Utillity.getTransactionType(stageIn, this.spanConfig);
@@ -945,6 +971,8 @@ public class ServiceMariaDb {
     }
   } 
 
+  
+
     public void finalizeSuccessRecordsAfterRetyRetur(SpanSp2dStageIn stagein) throws SQLException {
 
         String transactionType = Utillity.getTransactionType(stagein, this.spanConfig);
@@ -1026,11 +1054,14 @@ public class ServiceMariaDb {
                sourceAccount =spanConfig.getAcctReksusSbsn();
                returAccount  =spanConfig.getAcctRrReksusSbsn();
        }
-        String sql = Utillity.finalizeSuccesRecord(sourceAccount,returAccount);
+        String sql = Utillity.finalizeSuccesRecordAfterGetStatus(sourceAccount,returAccount);
        try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
-            ps.setString(2, statusForRetryGetstatus);
-            ps.setString(3,stagein.getDocumentNumber());
+            ps.setString(2,statusForRetryGetstatus);
+            ps.setString(3,statusTimeoutCreditTransferBifast);
+            ps.setString(4,stagein.getDocumentNumber());
+            MainCHK.tulisLog(ps);
+
             int updated = ps.executeUpdate();
         System.out.println("Finalized " + updated + " record(s): RGS-000 → FIN-000");
     }
@@ -1206,15 +1237,16 @@ public class ServiceMariaDb {
 
         
         String sql ="UPDATE span_sp2d_stage_in " +
-                    "SET status = ? , return_code = ? "+
+                    "SET status = ? , return_code = ? , reference_number= ? " +
                     "WHERE documentnumber = ? " +
                     "AND status = ? ";
 
         try (PreparedStatement ps  = conn.prepareStatement(sql)) {
             ps.setString(1, statusTimeoutCreditTransferBifast);
             ps.setString(2, rcForTimeoutCtProcess);
-            ps.setString(3, item.getDocumentNumber());
-            ps.setString(4, statusReadyPosting);
+            ps.setString(3,item.getReferenceNumber());
+            ps.setString(4, item.getDocumentNumber());
+            ps.setString(5, statusReadyPosting);
             int updated = ps.executeUpdate();
 
             if (updated > 0) {
@@ -1640,8 +1672,8 @@ public class ServiceMariaDb {
         }
     }
 
-    public void updateStatusBifastDataToSucces(SpanSp2dStageIn rec , String mappingRc) throws SQLException{
-      String sql = Utillity.updateStatusSuccessOnSpanSp2dBifastData(); 
+    public void updateStatusBifastData(SpanSp2dStageIn rec , String mappingRc) throws SQLException{
+      String sql = Utillity.updateStatusSpanSp2dBifastData(); 
       try (PreparedStatement ps = conn.prepareStatement(sql)){
         ps.setString(1, mappingRc);
         ps.setString(2, rec.getDocumentNumber());

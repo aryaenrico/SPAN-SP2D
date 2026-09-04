@@ -55,7 +55,7 @@ public class ProcessBifast {
         initClientsAndConfig();
     }
 
-    // [FIX][2026-08-12] Inisialisasi client & config di dalam method constructor setelah pathProp & propName terisi
+    // Inisialisasi client & config di dalam method constructor setelah pathProp & propName terisi
     private void initClientsAndConfig() {
 
         this.pathProp = this.pathPropertiesBifast.getPathProp();
@@ -68,7 +68,7 @@ public class ProcessBifast {
     }
 
 
-    // 2026-08-04] Factory method untuk membuat dedicated instance ServiceMariaDb (1 koneksi DB terisolasi per Worker Thread)
+    //  Factory method untuk membuat dedicated instance ServiceMariaDb (1 koneksi DB terisolasi per Worker Thread)
     private ServiceMariaDb createMariaDbInstance() {
         if (this.pathProp == null || this.propName == null) {
             MainCHK.tulisLog("[ERROR][2026-08-12] pathProp atau propName null saat createMariaDbInstance! Using default fallback.");
@@ -77,7 +77,7 @@ public class ProcessBifast {
         return new ServiceMariaDb(this.pathProp, this.propName);
     }
 
-    // [2026-08-04] Multi-Threading dengan 3 Dedicated Worker Threads & 3 Instance ServiceMariaDb Terpisah.
+    // Multi-Threading dengan 3 Dedicated Worker Threads & 3 Instance ServiceMariaDb Terpisah.
     public String paymentBifast(List<SpanSp2dStageIn> processData) {
         if (processData == null || processData.isEmpty()) {
             MainCHK.tulisLog("Tidak ada data BI-FAST untuk diproses.");
@@ -258,7 +258,12 @@ public class ProcessBifast {
         boolean isReturCode = accountNoutFound || "78".equals(responseCode);
         boolean isFallbackSkn = "99".equals(responseCode) || !isNameMatched;
 
+        if (!isNameMatched){
+            MainCHK.tulisLog("terdapat perbedaan nama penerima pada Data document dumber : " + item.getDocumentNumber());
+            MainCHK.tulisLog("Nama penerima pada dokumen sp2d :"+item.getBeneficiaryName());
+            MainCHK.tulisLog("Nama penerima hasil inquiry :"+accountInquiryResponse.getCreditorName());
 
+        }
 
         MainCHK.tulisLog("Account Inquiry Rsponse Code :  " + accountInquiryResponse.getResponseCode());
         
@@ -336,7 +341,7 @@ public class ProcessBifast {
                     MainCHK.tulisLog("Network timeout saat Credit Transfer untuk doc: " + item.getDocumentNumber() + " - " + e.getMessage());
                     ctResponse = new CreditTransferResponse();
                     ctResponse.setResponseCode("51");
-                    handleCreditTransferTimeout(item, ctResponse, mariaDb);
+                    handleCreditTransferTimeout(item, mariaDb);
                     return;
                 } else {
                     MainCHK.tulisLog("API Client Error saat Credit Transfer: " + e.getMessage());
@@ -497,6 +502,7 @@ public class ProcessBifast {
         paymenStatusRequest.setRequestId(RequestIdGenerator.generateRequestID());
         paymenStatusRequest.setChannelType("02");
         paymenStatusRequest.setBicSendSys("BSMDIDJA");
+        paymenStatusRequest.setBicRecvSys("FASTIDJA");
         paymenStatusRequest.setOriginator("O");
         return paymenStatusRequest;
     }
@@ -581,17 +587,24 @@ public class ProcessBifast {
                     MainCHK.tulisLog("Network timeout saat get status inquiry: " + e.getMessage());
                     
                     int counterUpdate = mariaDb.getNumRetryStatus(item) + 1;
+                    MainCHK.tulisLog("Nilai Counter :"+ counterUpdate);
                         if (counterUpdate == 5){
                          CreditTransferResponse ctResponse = new CreditTransferResponse();
                         ctResponse.setResponseCode("000");
                         ctResponse.setReferenceId(item.getReferenceNumber());
-                        mariaDb.postingMessageAfterCt(item, ctResponse);
+                        mariaDb.postingMessageAfterSuccessGetStatus(item, ctResponse);
                         mariaDb.prosesAck(item);
-                        } else if (counterUpdate == 1 ) {
+                        } else if (counterUpdate == 1) {
                         mariaDb.initiateRetryCheckStatus(item);
                         }
                         MainCHK.tulisLog("Increment counter PSR");
                         mariaDb.increaseCounterCheckstatusBifast(item, counterUpdate);
+
+                        String documentNumberOnTableSp2dBifast = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
+                        if (documentNumberOnTableSp2dBifast == null){
+                          mariaDb.insertDataSp2dBfast(item);
+                        }
+                        mariaDb.updateStatusBifastData(item,"GS029");
 
                 } else {
                     MainCHK.tulisLog("API Exception saat get status inquiry: " + e.getMessage());
@@ -610,8 +623,15 @@ public class ProcessBifast {
                         ctResponse.setResponseCode("000");
                         // harus di cek
                         ctResponse.setReferenceId(item.getReferenceNumber());
-                        mariaDb.postingMessageAfterCt(item, ctResponse);
+                        mariaDb.postingMessageAfterSuccessGetStatus(item, ctResponse);
                         mariaDb.prosesAck(item);
+                        
+                        String documentNumberOnTableSp2dBifast = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
+                        if (documentNumberOnTableSp2dBifast == null){
+                            mariaDb.insertDataSp2dBfast(item);
+                         }
+                       mariaDb.updateStatusBifastData(item,"GS000");
+
                     } catch (SQLException e) {
                         MainCHK.tulisLog("Error posting/ACK setelah get status sukses: " + e.getMessage());
                     }
@@ -625,7 +645,7 @@ public class ProcessBifast {
                         CreditTransferResponse ctResponse = new CreditTransferResponse();
                         ctResponse.setResponseCode("000");
                         ctResponse.setReferenceId(item.getReferenceNumber());
-                        mariaDb.postingMessageAfterCt(item, ctResponse);
+                        mariaDb.postingMessageAfterSuccessGetStatus(item, ctResponse);
                         mariaDb.prosesAck(item);
                         } else if (counterUpdate == 1 ) {
                           mariaDb.initiateRetryCheckStatus(item);
@@ -652,12 +672,10 @@ public class ProcessBifast {
                         CreditTransferResponse ctResponse = new CreditTransferResponse();
                         ctResponse.setResponseCode("000");
                         ctResponse.setReferenceId(item.getReferenceNumber());
-                        mariaDb.postingMessageAfterCt(item, ctResponse);
+                        mariaDb.postingMessageAfterSuccessGetStatus(item, ctResponse);
                         mariaDb.prosesAck(item);
                         }else if (counterUpdate == 1) {
-                          SpanSp2dStageIn data =item;
-                          data.setReferenceNumber(cTransferResponse.getReferenceId());
-                          mariaDb.initiateRetryCheckStatus(data);
+                          mariaDb.initiateRetryCheckStatus(item);
                         }
                         MainCHK.tulisLog("Increment counter");
                         mariaDb.increaseCounterCheckstatusBifast(item, counterUpdate);
@@ -721,11 +739,11 @@ public class ProcessBifast {
                      mariaDb.finalizeSuccessRecordsAfterGetStatus(item);
                      break;
              }
-             String documentNumberOnTableSp2dBifast =mariaDb.getDataSp2dBifast(item.getDocumentNumber());
+             String documentNumberOnTableSp2dBifast = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
                  if (documentNumberOnTableSp2dBifast == null){
                       mariaDb.insertDataSp2dBfast(item);
                 }
-             mariaDb.updateStatusBifastDataToSucces(item,"SR000");
+             mariaDb.updateStatusBifastData(item,"SR000");
         } else {
             MainCHK.tulisLog("Gagal retur CT pada Core T24! dengan response dari core"+ resp.status.toString() + "untuk document number : "+item.getDocumentNumber());
             if (resp == null) {
@@ -783,7 +801,7 @@ public class ProcessBifast {
                     CreditTransferResponse ctResponse  = new CreditTransferResponse();
                     ctResponse.setResponseCode(item.getReturnCode());
                     try {
-                     handleCreditTransferTimeout(item, ctResponse, threadMariaDb);
+                     handleCreditTransferTimeout(item, threadMariaDb);
                     } catch (Exception e){
                         MainCHK.tulisLog("Error saat pemanggilan awal proses retur" + e.getMessage());
                     }

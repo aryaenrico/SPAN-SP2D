@@ -30,7 +30,7 @@ public class ProsesRetur {
        }
                      
         FundsTransferSoapRequest ftRequest = new FundsTransferSoapRequest();
-        ftRequest.ofsFunction.messageId = item.getDocumentNumber()+"45";
+        ftRequest.ofsFunction.messageId = item.getDocumentNumber()+"001";
         FundsTransferSoapRequest.FundsTransferIdiAcctTrfCmsType ft = ftRequest.fundsTransfer;
         ft.transactionType = transactionType;
         ft.debitAccount = debitAcct;

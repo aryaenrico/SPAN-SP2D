@@ -80,10 +80,11 @@ public class BifastDemo {
                     MainCHK.tulisLog("Proses posting transaction done..");
                      */
 
-                    mariaDb.excludeOutOfBalanceBO1();
+                    //mariaDb.excludeOutOfBalanceBO1();
                     MainCHK.tulisLog("Start proses posting transaction...");
-                    List<SpanSp2dStageIn> dataBifast = mariaDb.getDataBifast("BO1");
-
+                    //List<SpanSp2dStageIn> dataBifast = mariaDb.getDataBifast("BO1");
+                    //List<SpanSp2dStageIn> dataRrs = mariaDb.getDataBifastForSchedulerPurpose(mariaDb.statusForManualRetur);
+                    List<SpanSp2dStageIn> dataRgs = mariaDb.getDataBifastForSchedulerPurpose(mariaDb.statusForRetryGetstatus);
                     PathPropertiesBifast pathPropertiesBifast = new PathPropertiesBifast("C:\\Users\\ven.arya\\Downloads\\Project\\2026\\SPAN\\Custom Handler\\span-custom-handler\\tesDs","bo2span");
                     String configFilePath = pathPropertiesBifast.getPathProp() + (pathPropertiesBifast.getPathProp().endsWith("/") || pathPropertiesBifast.getPathProp().endsWith("\\") ? "" : File.separator) + pathPropertiesBifast.getPropName() + ".properties";
                     MainCHK.tulisLog("[CONFIG] Loading BifastConfig from: " + configFilePath);
@@ -91,8 +92,9 @@ public class BifastDemo {
                     BifastConfig config = BifastConfig.fromProperties(configFilePath);
 
                     ProcessBifast processBifast = new ProcessBifast(config, pathPropertiesBifast);
-                    processBifast.paymentBifast(dataBifast);
-                    mariaDb.includeOutOfBalanceBO1Bifast();
+                    processBifast.prosesTimeoutCtBifast(dataRgs);
+                    //processBifast.paymentBifast(dataBifast);
+                    //mariaDb.includeOutOfBalanceBO1Bifast();
                     MainCHK.tulisLog("Proses posting transaction done..");
             }
                 catch(Exception e){

@@ -29,7 +29,6 @@ public class CreditTransferResponse {
     public void setResponseDate(String responseDate) { this.responseDate = responseDate; }
     
     public String getResponseCode() { return this.responseCode; }
-    // [FIX][2026-07-31] GAP 5: Perbaikan bug setter hardcode "99". Sebelumnya responseCode selalu di-set "99" sehingga seluruh logic CT failure (RC 51/57/05/25/78) tidak pernah bekerja.
     public void setResponseCode(String responseCode) { this.responseCode = responseCode; }
     
     public String getResponseMessage() { return responseMessage; }
