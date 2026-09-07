@@ -1,5 +1,6 @@
 package com.bsi.service;
 
+import com.bsi.entity.t24.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
@@ -9,8 +10,7 @@ import org.w3c.dom.NodeList;
 import com.bsi.MainCHK;
 import com.bsi.config.T24Config;
 import com.bsi.entity.api.ApiClientException;
-import com.bsi.entity.t24.FundsTransferSoapRequest;
-import com.bsi.entity.t24.FundsTransferSoapResponse;
+
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.Marshaller;
 import javax.xml.bind.Unmarshaller;
@@ -43,9 +43,12 @@ public class T24Client {
         this.config = config;
         try {
             this.jaxbContext = JAXBContext.newInstance(
-                    FundsTransferSoapRequest.class,FundsTransferSoapResponse.class);
+                    FundsTransferSoapRequest.class, FundsTransferSoapResponse.class,
+                    AccountDetailsSoapRequest.class, AccountDetailsSoapResponse.class,
+                    WebRequestCommon.class,Status.class);
         } catch (Exception e) {
-            throw new ApiClientException("Gagal inisialisasi JAXBContext: " + e.getMessage(), e);
+            throw new ApiClientException("Gagal inisialisasi JAXBContext: " + e.getMessage(),e );
+
         }
     }
 
@@ -62,7 +65,7 @@ public class T24Client {
             // [LOG][2026-08-03] Requirement: Logging payload response integrasi Retur T24 via MainCHK.tulisLog
             MainCHK.tulisLog("Payload Response Retur T24: " + soapResponse);
 
-            return parseResponse(soapResponse);
+            return parseResponse(soapResponse, FundsTransferSoapResponse.class);
         } catch (ApiClientException e) {
             // [LOG][2026-08-03] Requirement: Logging payload error integrasi Retur T24 via MainCHK.tulisLog
             MainCHK.tulisLog("Payload Response Retur T24 ERROR: " + e.getMessage());
@@ -74,15 +77,51 @@ public class T24Client {
         }
     }
 
+    public AccountDetailsSoapResponse accountDetails(AccountDetailsSoapRequest request) {
+        applyCredentials(request);
+        try {
+            String soapRequest = buildSoapEnvelope(request);
+            log.info("T24 SOAP request: {}", soapRequest);
+            MainCHK.tulisLog("Payload Request AccountDetails T24: " + soapRequest);
+
+            String soapResponse = postXml(soapRequest);
+            log.info("T24 SOAP response: {}", soapResponse);
+            MainCHK.tulisLog("Payload Response AccountDetails T24: " + soapResponse);
+
+            return parseResponse(soapResponse, AccountDetailsSoapResponse.class);
+        } catch (ApiClientException e) {
+            MainCHK.tulisLog("Payload Response AccountDetails T24 ERROR: " + e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            MainCHK.tulisLog("Payload Response AccountDetails T24 ERROR: " + e.getMessage());
+            throw new ApiClientException("Gagal memanggil T24 AccountDetails: " + e.getMessage(), e);
+        }
+    }
+
     private void applyCredentials(FundsTransferSoapRequest request) {
-        FundsTransferSoapRequest.WebRequestCommon wrc = request.webRequestCommon;
-        if (isEmpty(wrc.userName) && config.getUserName() != null) wrc.userName = config.getUserName();
-        if (isEmpty(wrc.password) && config.getPassword() != null) wrc.password = config.getPassword();
-        if (isEmpty(wrc.company)  && config.getCompany()  != null) wrc.company  = config.getCompany();
+        if (isEmpty(request.webRequestCommon.getUserName()) && config.getUserName() != null) request.webRequestCommon.setUserName( config.getUserName());
+        if (isEmpty(request.webRequestCommon.getPassword()) && config.getPassword() != null) request.webRequestCommon.setPassword(config.getPassword());
+        if (isEmpty(request.webRequestCommon.getCompany())  && config.getCompany()  != null) request.webRequestCommon.setCompany(config.getCompany());
+
+    }
+
+    private void applyCredentials(AccountDetailsSoapRequest request ) {
+
+        if (isEmpty(request.webRequestCommon.getUserName()) && config.getUserName() != null) request.webRequestCommon.setUserName( config.getUserName());
+        if (isEmpty(request.webRequestCommon.getPassword()) && config.getPassword() != null) request.webRequestCommon.setPassword(config.getPassword());
+        if (isEmpty(request.webRequestCommon.getCompany())  && config.getCompany()  != null) request.webRequestCommon.setCompany(config.getCompany());
     }
 
 
     private String buildSoapEnvelope(FundsTransferSoapRequest request) throws Exception {
+        return buildSoapEnvelope((Object) request, FundsTransferSoapRequest.NS);
+    }
+
+    private String buildSoapEnvelope(AccountDetailsSoapRequest request) throws Exception {
+        return buildSoapEnvelope((Object) request, AccountDetailsSoapRequest.NS);
+    }
+
+    private String buildSoapEnvelope(Object request, String namespace) throws Exception {
         Marshaller marshaller = jaxbContext.createMarshaller();
         marshaller.setProperty(Marshaller.JAXB_FRAGMENT, Boolean.TRUE);
 
@@ -90,7 +129,7 @@ public class T24Client {
         marshaller.marshal(request, bodyWriter);
 
         return "<soapenv:Envelope xmlns:soapenv=\"" + SOAP_NS + "\""
-                + " xmlns:t24=\"" + FundsTransferSoapRequest.NS + "\">"
+                + " xmlns:t24=\"" + namespace + "\">"
                 + "<soapenv:Header/>"
                 + "<soapenv:Body>"
                 + bodyWriter.toString()
@@ -135,7 +174,7 @@ public class T24Client {
     }
 
     /** Ambil elemen pertama di dalam soap:Body lalu unmarshal */
-    private FundsTransferSoapResponse parseResponse(String soapXml) throws Exception {
+    private <T> T parseResponse(String soapXml, Class<T> responseType) throws Exception {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setNamespaceAware(true);
         // Hardening terhadap XXE
@@ -162,7 +201,7 @@ public class T24Client {
 
         Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
         return unmarshaller
-                .unmarshal(bodyContent, FundsTransferSoapResponse.class)
+                .unmarshal(bodyContent, responseType)
                 .getValue();
     }
 

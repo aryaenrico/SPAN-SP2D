@@ -23,13 +23,6 @@ public class FundsTransferSoapRequest {
     // ------------------------------------------------------------------
 
     @XmlAccessorType(XmlAccessType.FIELD)
-    public static class WebRequestCommon {
-        @XmlElement(name = "userName") public String userName;
-        @XmlElement(name = "password") public String password;
-        @XmlElement(name = "company")  public String company;
-    }
-
-    @XmlAccessorType(XmlAccessType.FIELD)
     public static class OfsFunction {
         @XmlElement(name = "gtsControl") public String gtsControl;
         @XmlElement(name = "messageId")  public String messageId;

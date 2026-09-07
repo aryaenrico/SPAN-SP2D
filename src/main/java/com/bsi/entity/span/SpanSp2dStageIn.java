@@ -1,4 +1,4 @@
-package com.bsi.entity.mock;
+package com.bsi.entity.span;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

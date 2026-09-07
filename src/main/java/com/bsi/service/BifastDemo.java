@@ -1,19 +1,19 @@
 package com.bsi.service;
 
 import java.io.File;
-import java.util.List;
+
 import com.bsi.MainCHK;
 import com.bsi.config.BifastConfig;
-import com.bsi.entity.mock.ProcessBifast;
-import com.bsi.entity.mock.SpanSp2dStageIn;
+import com.bsi.config.T24Config;
 import com.bsi.entity.span.PathPropertiesBifast;
+import com.bsi.entity.t24.AccountDetailsSoapRequest;
 
 
 public class BifastDemo {
 
     public static void main(String[] args) {
         System.out.println("Start");
-        ServiceMariaDb mariaDb = new ServiceMariaDb("C:\\Users\\ven.arya\\Downloads\\Project\\2026\\SPAN\\Custom Handler\\span-custom-handler\\tesDs", "bo2span");
+        //ServiceMariaDb mariaDb = new ServiceMariaDb("C:\\Users\\ven.arya\\Downloads\\Project\\2026\\SPAN\\Custom Handler\\span-custom-handler\\tesDs", "bo2span");
         
 
      /*
@@ -84,15 +84,22 @@ public class BifastDemo {
                     MainCHK.tulisLog("Start proses posting transaction...");
                     //List<SpanSp2dStageIn> dataBifast = mariaDb.getDataBifast("BO1");
                     //List<SpanSp2dStageIn> dataRrs = mariaDb.getDataBifastForSchedulerPurpose(mariaDb.statusForManualRetur);
-                    List<SpanSp2dStageIn> dataRgs = mariaDb.getDataBifastForSchedulerPurpose(mariaDb.statusForRetryGetstatus);
-                    PathPropertiesBifast pathPropertiesBifast = new PathPropertiesBifast("C:\\Users\\ven.arya\\Downloads\\Project\\2026\\SPAN\\Custom Handler\\span-custom-handler\\tesDs","bo2span");
+                    //List<SpanSp2dStageIn> dataRgs = mariaDb.getDataBifastForSchedulerPurpose(mariaDb.statusForRetryGetstatus);
+                    //PathPropertiesBifast pathPropertiesBifast = new PathPropertiesBifast("C:\\Users\\ven.arya\\Downloads\\Project\\2026\\SPAN\\Custom Handler\\span-custom-handler\\tesDs","bo2span");
+                    PathPropertiesBifast pathPropertiesBifast = new PathPropertiesBifast("C:\\Users\\user\\Downloads\\span-custom-handler(2026-09-04)\\span-custom-handler\\tesDs","bo2span");
                     String configFilePath = pathPropertiesBifast.getPathProp() + (pathPropertiesBifast.getPathProp().endsWith("/") || pathPropertiesBifast.getPathProp().endsWith("\\") ? "" : File.separator) + pathPropertiesBifast.getPropName() + ".properties";
                     MainCHK.tulisLog("[CONFIG] Loading BifastConfig from: " + configFilePath);
 
                     BifastConfig config = BifastConfig.fromProperties(configFilePath);
 
                     ProcessBifast processBifast = new ProcessBifast(config, pathPropertiesBifast);
-                    processBifast.prosesTimeoutCtBifast(dataRgs);
+                    AccountDetailsSoapRequest req = new AccountDetailsSoapRequest();
+                     req.idiAccountCmsType.enquiryInputCollection.add(
+                     new AccountDetailsSoapRequest.EnquiryInput("ID", "7927927298", "EQ"));
+                     T24Client t24Client = new T24Client(T24Config.fromProperties(configFilePath));
+                     t24Client.accountDetails(req);
+
+                    //processBifast.prosesTimeoutCtBifast(dataRgs);
                     //processBifast.paymentBifast(dataBifast);
                     //mariaDb.includeOutOfBalanceBO1Bifast();
                     MainCHK.tulisLog("Proses posting transaction done..");

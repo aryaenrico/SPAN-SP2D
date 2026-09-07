@@ -5,7 +5,7 @@ import com.bsi.config.SpanConfig;
 import com.bsi.entity.PostingRequest;
 import com.bsi.entity.bifast.accountinquiry.AccountInquiryResponse;
 import com.bsi.entity.bifast.credittransfer.CreditTransferResponse;
-import com.bsi.entity.mock.SpanSp2dStageIn;
+import com.bsi.entity.span.SpanSp2dStageIn;
 import com.bsi.entity.span.BifastRcMapping;
 import com.bsi.entity.span.GenerateAckOut;
 import com.bsi.entity.span.ReturnStatusAck;
@@ -16,6 +16,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import javax.ws.rs.core.Response;
 import java.io.File;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.MalformedURLException;
@@ -1654,7 +1655,37 @@ public class ServiceMariaDb {
          MainCHK.tulisLog("Error saat generate ack transaksi bifast"+e.getMessage());
          e.printStackTrace();
        }
-    } 
+    }
+
+    // [CHANGE][2026-09-08] Overload prosesAck untuk arsitektur dedicated writer per thread.
+    // Menggunakan appendAckLines ke writer yang sudah dibuka oleh thread, bukan membuat file baru.
+    // copyToArchiveIfExists tidak dipanggil di sini — archive dilakukan sekali saat thread selesai.
+    public void prosesAck(SpanSp2dStageIn item, BufferedWriter ackWriter) {
+        GenerateAckOut generateAckOut = new GenerateAckOut();
+        MainCHK.tulisLog("Process generate ack (dedicated writer) untuk document number: " + item.getDocumentNumber());
+        List<SpanSp2dPosting> source = null;
+        try {
+            String transactionType = Utillity.getTransactionType(item, this.spanConfig);
+            switch (transactionType.trim().toUpperCase()) {
+                case "BO2":
+                    source = fetchSp2dPostingForGaji(item.getDocumentNumber());
+                    break;
+                case "BO1":
+                    source = fetchSp2dPostingForNonGaji(item.getDocumentNumber());
+                    break;
+            }
+            Map<String, ReturnStatusAck> map_status_code = Utillity.fetchReturnStatusAck(conn);
+            if (source != null && !source.isEmpty()) {
+                generateAckOut.appendAckLines(ackWriter, conn, source, map_status_code);
+                for (SpanSp2dPosting data : source) {
+                    generateAckOut.updateFlagAck(conn, spanConfig, data);
+                }
+            }
+        } catch (IOException | SQLException e) {
+            MainCHK.tulisLog("Error saat append ack transaksi bifast: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
 
      public void prosesAckRetur(String documentNumber){
         GenerateAckOut generateAckOut = new GenerateAckOut();
@@ -1662,7 +1693,7 @@ public class ServiceMariaDb {
        try{
         List<SpanSp2dPosting> source = fetchSp2dPostingForAckRetur(documentNumber);
         Map<String,ReturnStatusAck> map_status_code = Utillity.fetchReturnStatusAck(conn);
-       
+
           if (!source.isEmpty()){
             String outputPath = generateAckOut.generateAckFile(conn,spanConfig,source,map_status_code);
             generateAckOut.copyToArchiveIfExists(spanConfig, outputPath, new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
@@ -1674,7 +1705,26 @@ public class ServiceMariaDb {
          MainCHK.tulisLog("Error saat generate ack transaksi bifast"+e.getMessage());
          e.printStackTrace();
        }
-    } 
+    }
+
+    // [CHANGE][2026-09-08] Overload prosesAckRetur untuk arsitektur dedicated writer per thread.
+    public void prosesAckRetur(String documentNumber, BufferedWriter ackWriter) {
+        GenerateAckOut generateAckOut = new GenerateAckOut();
+        MainCHK.tulisLog("Proses generate ack retur (dedicated writer) untuk document number: " + documentNumber);
+        try {
+            List<SpanSp2dPosting> source = fetchSp2dPostingForAckRetur(documentNumber);
+            Map<String, ReturnStatusAck> map_status_code = Utillity.fetchReturnStatusAck(conn);
+            if (!source.isEmpty()) {
+                generateAckOut.appendAckLines(ackWriter, conn, source, map_status_code);
+                for (SpanSp2dPosting data : source) {
+                    generateAckOut.updateFlagAckRetur(conn, spanConfig, data);
+                }
+            }
+        } catch (IOException | SQLException e) {
+            MainCHK.tulisLog("Error saat append ack retur transaksi bifast: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
 
     public void updateReturnCodeReturProses(SpanSp2dStageIn rec) throws SQLException{
         String sql = "UPDATE span_sp2d_posting SET status = ?  , return_code = ? " +

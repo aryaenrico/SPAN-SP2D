@@ -1,7 +1,7 @@
 package com.bsi.service;
 
 import com.bsi.config.T24Config;
-import com.bsi.entity.mock.SpanSp2dStageIn;
+import com.bsi.entity.span.SpanSp2dStageIn;
 import com.bsi.entity.t24.FundsTransferSoapRequest;
 import com.bsi.entity.t24.FundsTransferSoapResponse;
 import com.bsi.utility.RequestIdGenerator;
@@ -19,7 +19,7 @@ public class ProsesRetur {
     }
     
     
-    public FundsTransferSoapResponse returProcess(SpanSp2dStageIn item, String debitAcct, String creditAcct,String type) {
+    public FundsTransferSoapResponse returProcess(SpanSp2dStageIn item, String debitAcct, String creditAcct,String type,String coCode) {
        String transactionType ="";
        switch (Utillity.safe(type.trim().toUpperCase())) {
             case "BO2":
@@ -30,7 +30,7 @@ public class ProsesRetur {
        }
                      
         FundsTransferSoapRequest ftRequest = new FundsTransferSoapRequest();
-        ftRequest.ofsFunction.messageId = item.getDocumentNumber()+"001";
+        ftRequest.ofsFunction.messageId = item.getDocumentNumber()+"02";
         FundsTransferSoapRequest.FundsTransferIdiAcctTrfCmsType ft = ftRequest.fundsTransfer;
         ft.transactionType = transactionType;
         ft.debitAccount = debitAcct;

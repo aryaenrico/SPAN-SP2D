@@ -13,7 +13,7 @@ import com.bsi.config.SpanConfig;
 import com.bsi.entity.span.BifastRcMapping;
 import com.bsi.entity.span.ReturnStatusAck;
 import com.bsi.entity.span.SpanSp2dPosting;
-import com.bsi.entity.mock.SpanSp2dStageIn;
+import com.bsi.entity.span.SpanSp2dStageIn;
 import com.bsi.entity.span.PaymentMethod;
 
 public class Utillity {
@@ -523,7 +523,7 @@ public static String extractBifastDescription (String bifastDescription) {
      public static String constructPaymentInformationBifast(SpanSp2dStageIn item){
         String result="";
         if (item.getDescription() == null){
-            return "";
+            return "SPAN-"+item.getDocumentNumber()+"-";
         }
          result ="SPAN-"+item.getDocumentNumber()+"-"+sanitizePaymentDetail(item.getDescription());
 

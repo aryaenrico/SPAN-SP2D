@@ -9,7 +9,7 @@ import java.util.Properties;
 
 public class T24Config {
 
-    private String endpointUrl = "http://apigw-uat-cbs-corp.bankbsi.co.id:4015/ws/coreR24AllServices/1.0";   
+    private String endpointUrl = "";
     private String soapAction = "";
     private String apiKey ="";
     private static String DEFAULT_PROPERTIES ="";

@@ -1,8 +1,13 @@
-package com.bsi.entity.mock;
+package com.bsi.service;
 
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.sql.SQLException;
+import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -11,9 +16,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import org.apache.log4j.chainsaw.Main;
-
+import com.bsi.entity.span.SpanSp2dStageIn;
+import com.bsi.entity.t24.AccountDetailsSoapResponse;
 import com.bsi.MainCHK;
 import com.bsi.config.BifastConfig;
 import com.bsi.config.T24Config;
@@ -25,16 +29,12 @@ import com.bsi.entity.bifast.credittransfer.CreditTransferResponse;
 import com.bsi.entity.bifast.transactioninquiry.PaymenStatusRequest;
 import com.bsi.entity.bifast.transactioninquiry.PaymentStatusResponse;
 import com.bsi.entity.span.BifastRcMapping;
+import com.bsi.entity.span.GenerateAckOut;
 import com.bsi.entity.span.PathPropertiesBifast;
 import com.bsi.entity.t24.FundsTransferSoapResponse;
-import com.bsi.service.BifastClient;
-import com.bsi.service.ProsesRetur;
-import com.bsi.service.ServiceMariaDb;
-import com.bsi.service.T24Client;
 import com.bsi.utility.RequestIdGenerator;
 import com.bsi.utility.Utillity;
 
-import oracle.net.aso.m;
 
 public class ProcessBifast {
 
@@ -71,7 +71,7 @@ public class ProcessBifast {
     //  Factory method untuk membuat dedicated instance ServiceMariaDb (1 koneksi DB terisolasi per Worker Thread)
     private ServiceMariaDb createMariaDbInstance() {
         if (this.pathProp == null || this.propName == null) {
-            MainCHK.tulisLog("[ERROR][2026-08-12] pathProp atau propName null saat createMariaDbInstance! Using default fallback.");
+            MainCHK.tulisLog("[ERROR] pathProp atau propName null saat createMariaDbInstance! Using default fallback.");
             return new ServiceMariaDb(config.getPathPropertiesBifast().getPathProp(), config.getPathPropertiesBifast().getPropName());
         }
         return new ServiceMariaDb(this.pathProp, this.propName);
@@ -121,26 +121,52 @@ public class ProcessBifast {
         });
         Runtime.getRuntime().addShutdownHook(shutdownHook);
 
+        // [CHANGE][2026-09-08] Arsitektur baru: setiap thread membuka 1 dedicated ACK file saat start
+        // dan melakukan continuous append ke file tersebut sepanjang thread berjalan. File ditutup
+        // dan di-archive di finally block thread, bukan per-item. Hal ini mengeliminasi race condition
+        // akibat pembuatan file baru di setiap pemanggilan generateAckFile pada kondisi multi-thread.
         for (int i = 1; i <= numThreads; i++) {
             final int threadId = i;
             executor.submit(() -> {
                 MainCHK.tulisLog("[WORKER-" + threadId + "] Worker thread dimulai (Membuka koneksi MariaDB dedicated)...");
                 ServiceMariaDb threadMariaDb = createMariaDbInstance();
+                GenerateAckOut ackGenerator = new GenerateAckOut();
+                String ackFilePath = null;
+                BufferedWriter ackWriter = null;
                 try {
+                    ackFilePath = ackGenerator.createDedicatedAckFilePath(threadMariaDb.getSpanconfig());
+                    ackWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(ackFilePath, true)));
                     SpanSp2dStageIn item;
                     while ((item = taskQueue.poll()) != null) {
                         int count = processedCount.incrementAndGet();
                         MainCHK.tulisLog("[WORKER-" + threadId + "] Memproses document: " + item.getDocumentNumber() + " (" + count + "/" + totalData + ")");
-                        processSingleItem(item, mappingRcAe, threadMariaDb);
+                        processSingleItem(item, mappingRcAe, threadMariaDb, ackWriter);
                     }
+                } catch (IOException e) {
+                    MainCHK.tulisLog("[WORKER-" + threadId + "] Error membuka dedicated ACK file: " + e.getMessage());
                 } finally {
+                    if (ackWriter != null) {
+                        try {
+                            ackWriter.close();
+                        } catch (IOException e) {
+                            MainCHK.tulisLog("[WORKER-" + threadId + "] Error menutup ACK writer: " + e.getMessage());
+                        }
+                    }
+                    if (ackFilePath != null) {
+                        try {
+                            ackGenerator.copyToArchiveIfExists(threadMariaDb.getSpanconfig(), ackFilePath,
+                                    new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date()));
+                        } catch (IOException e) {
+                            MainCHK.tulisLog("[WORKER-" + threadId + "] Error copy ACK ke archive: " + e.getMessage());
+                        }
+                    }
                     try {
                         threadMariaDb.close();
                     } catch (Exception e) {
                         MainCHK.tulisLog("[WORKER-" + threadId + "] Error closing DB connection: " + e.getMessage());
                     }
                 }
-                MainCHK.tulisLog("[WORKER-" + threadId + "] Worker thread selesai (Koneksi DB ditutup).");
+                MainCHK.tulisLog("[WORKER-" + threadId + "] Worker thread selesai (Koneksi DB & ACK writer ditutup).");
             });
         }
 
@@ -166,8 +192,9 @@ public class ProcessBifast {
         return "00";
     }
 
-    //  Ekstraksi pemrosesan single item dengan instance mariaDb dedicated per-thread (Tanpa Synchronized)
-    public void processSingleItem(SpanSp2dStageIn item, Map<String, BifastRcMapping> mappingRcAe, ServiceMariaDb mariaDb) {
+    // [CHANGE][2026-09-08] Signature diperluas dengan parameter ackWriter (dedicated BufferedWriter per thread).
+    // Writer diteruskan ke seluruh sub-method yang memanggil prosesAck / prosesAckRetur.
+    public void processSingleItem(SpanSp2dStageIn item, Map<String, BifastRcMapping> mappingRcAe, ServiceMariaDb mariaDb, BufferedWriter ackWriter) {
         
         // ACCOUNT INQUIRY
         AccountInquiryRequest accountInquiryRequest = buildAccountInquiryRequest(item);
@@ -199,6 +226,7 @@ public class ProcessBifast {
                     mariaDb.insertDataSp2dBfast(item);
                 }
                  mariaDb.handleAccountInquiryError(item, "BLANK", mappingRcAe);
+                 return;
         }catch (SQLException sqlEx) {
               MainCHK.tulisLog("Error update DB saat AE timeout: " + sqlEx.getMessage());
           }
@@ -262,7 +290,6 @@ public class ProcessBifast {
             MainCHK.tulisLog("terdapat perbedaan nama penerima pada Data document dumber : " + item.getDocumentNumber());
             MainCHK.tulisLog("Nama penerima pada dokumen sp2d :"+item.getBeneficiaryName());
             MainCHK.tulisLog("Nama penerima hasil inquiry :"+accountInquiryResponse.getCreditorName());
-
         }
 
         MainCHK.tulisLog("Account Inquiry Rsponse Code :  " + accountInquiryResponse.getResponseCode());
@@ -270,12 +297,12 @@ public class ProcessBifast {
 
         // Case 1 : Ae dan ct sukses
         if (accountInquiryResponse.isSuccess() && isAccountValid && isNameMatched) {
-            executeCreditTransferFlow(item, mariaDb);
+            executeCreditTransferFlow(item, mariaDb, ackWriter);
         }
-        // case 2 : AE retur 
+        // case 2 : AE retur
         else if (isReturCode) {
             MainCHK.tulisLog("Proses Retur Validasi Account Inquiry dengan response code : "+ accountInquiryResponse.getResponseCode());
-            executeAccountInquiryReturFlow(item, accountInquiryResponse, mariaDb , mappingRcSpan);
+            executeAccountInquiryReturFlow(item, accountInquiryResponse, mariaDb, mappingRcSpan, ackWriter);
         }
         else if (beneficiaryBankIsnotAvailable) {
             try {
@@ -321,7 +348,7 @@ public class ProcessBifast {
         return rcMapping.get(key).span_rc;
      }
 
-    private void executeCreditTransferFlow(SpanSp2dStageIn item, ServiceMariaDb mariaDb) {
+    private void executeCreditTransferFlow(SpanSp2dStageIn item, ServiceMariaDb mariaDb, BufferedWriter ackWriter) {
         MainCHK.tulisLog("Initiate Proses Credit Transfer");
         CreditTransferRequest ctRequest = buildCreditTransferRequest(item);
 
@@ -363,7 +390,7 @@ public class ProcessBifast {
                  MainCHK.tulisLog("Error update DB saat AE HTTP 404: " + sqlEx.getMessage());
                }
              } else if (httpCode == 508) {
-                  MainCHK.tulisLog("Response HTTP 508 saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
+                  MainCHK.tulisLog("Response HTTP 508 saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + e.getMessage());
               try {
                    String documentNumberOnTable = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
                      if (documentNumberOnTable == null){
@@ -386,9 +413,9 @@ public class ProcessBifast {
           
             if (ctResponse.isSuccess()) {
                 mariaDb.postingMessageAfterCt(item, ctResponse);
-                mariaDb.prosesAck(item);
+                mariaDb.prosesAck(item, ackWriter);
             } else {
-                handleCreditTransferFailure(item, ctResponse, mariaDb);
+                handleCreditTransferFailure(item, ctResponse, mariaDb, ackWriter);
             }
         } catch (Exception e) {
             MainCHK.tulisLog("Error pada alur Credit Transfer: " + e.getMessage());
@@ -396,7 +423,7 @@ public class ProcessBifast {
         }
     }
 
-    private void handleCreditTransferFailure(SpanSp2dStageIn item, CreditTransferResponse ctResponse, ServiceMariaDb mariaDb) throws SQLException {
+    private void handleCreditTransferFailure(SpanSp2dStageIn item, CreditTransferResponse ctResponse, ServiceMariaDb mariaDb, BufferedWriter ackWriter) throws SQLException {
         String respCode = Utillity.safe(ctResponse.getResponseCode());
         boolean timeoutFromCi = "51".equals(respCode);
         boolean timeoutCoreFt = "57".equals(respCode);
@@ -411,7 +438,7 @@ public class ProcessBifast {
             mariaDb.handleResponseTimeoutFromCi(dataClone ,ctResponse);
             int numOfRetryStatus = mariaDb.getNumRetryStatus(dataClone);
             if (numOfRetryStatus < 5) {
-                handleCreditTransferTimeout(dataClone, mariaDb);
+                handleCreditTransferTimeout(dataClone, mariaDb, ackWriter);
             }
         } 
         // Skenario 2: Failed Credit transfer (Timeout from Core Banking FT Processing) RC 57
@@ -438,7 +465,7 @@ public class ProcessBifast {
             dataClone.setReferenceNumber(ctResponse.getReferenceId());
 
             mariaDb.updateErrorDataForReturProcess(dataClone);
-            executeTransactionRetur(dataClone, mariaDb);
+            executeTransactionRetur(dataClone, mariaDb, ackWriter);
         }
         else if (isBeneficiaryDormant) {
             MainCHK.tulisLog("Failed CT: Account Inactive/Dormant (RC 78) untuk doc: " + item.getDocumentNumber() + ". Melakukan proses retur FT.");
@@ -446,16 +473,14 @@ public class ProcessBifast {
             dataClone.setReturnCode(ctResponse.getResponseCode());
             dataClone.setReferenceNumber(ctResponse.getReferenceId());
 
-            executeTransactionRetur(dataClone, mariaDb);
+            executeTransactionRetur(dataClone, mariaDb, ackWriter);
         }
     }
 
-    private void executeAccountInquiryReturFlow(SpanSp2dStageIn item, AccountInquiryResponse inquiryResponse, ServiceMariaDb mariaDb,String rcSpan) {
+    private void executeAccountInquiryReturFlow(SpanSp2dStageIn item, AccountInquiryResponse inquiryResponse, ServiceMariaDb mariaDb, String rcSpan, BufferedWriter ackWriter) {
         MainCHK.tulisLog("Account Inquiry retur process initiated");
         SpanSp2dStageIn dataClone = item;
         dataClone.setReturnCode(inquiryResponse.getResponseCode());
-        
-        
         try{
          mariaDb.updateRetrunCodeForReturProcess(dataClone);
         } catch(SQLException  e){
@@ -478,9 +503,10 @@ public class ProcessBifast {
             default:
                 creditAccount = mariaDb.getSpanconfig().getAcctRrReksusSbsn();
         }
-
+        ProsesAccountDetails prosesAccountDetails = new ProsesAccountDetails(configT24);
+        AccountDetailsSoapResponse accountDetailsSoapResponse = prosesAccountDetails.getCocode(debitAccount);
         ProsesRetur prosesRetur = new ProsesRetur(configT24);
-        FundsTransferSoapResponse resp = prosesRetur.returProcess(item, debitAccount, creditAccount, transactionType);
+        FundsTransferSoapResponse resp = prosesRetur.returProcess(item, debitAccount, creditAccount, transactionType,accountDetailsSoapResponse.getFirstDetail().coCode);
     
         if (resp != null && resp.isSuccess()) {
             try {
@@ -500,7 +526,7 @@ public class ProcessBifast {
                 }
                 mariaDb.handleAccountInquiryErrorRcSpan(item, rcSpan);
                 mariaDb.updateSp2dstageinAEerror(item , inquiryResponse.getResponseCode());
-                mariaDb.prosesAckRetur(item.getDocumentNumber());
+                mariaDb.prosesAckRetur(item.getDocumentNumber(), ackWriter);
             } catch (Exception e) {
                 MainCHK.tulisLog("Error insert data retur AE pada tabel posting: " + e.getMessage());
             }
@@ -598,7 +624,7 @@ public class ProcessBifast {
         );
     }
 
-    public void handleCreditTransferTimeout(SpanSp2dStageIn item, ServiceMariaDb mariaDb) {
+    public void handleCreditTransferTimeout(SpanSp2dStageIn item, ServiceMariaDb mariaDb, BufferedWriter ackWriter) {
         try {
             MainCHK.tulisLog("Memproses Status Payment Request untuk doc : " + item.getDocumentNumber() + " [code=" + item.getReturnCode() + "]");
             PaymenStatusRequest tiRequest = buildPaymentStatusRequest(item);
@@ -607,12 +633,14 @@ public class ProcessBifast {
             } catch (SQLException e ){
                 MainCHK.tulisLog("Error saat get data end to end id untuk kebutuhan psr untuk doc : "+ item.getDocumentNumber());
             }
+
             PaymentStatusResponse tiResponse = null;
 
             try {
                 tiResponse = client.transactionInquiry(tiRequest);
             } catch (ApiClientException e) {
                 if (e.isNetworkTimeout()) {
+
                     MainCHK.tulisLog("Network timeout saat get status inquiry: " + e.getMessage());
                     
                     int counterUpdate = mariaDb.getNumRetryStatus(item) + 1;
@@ -622,7 +650,9 @@ public class ProcessBifast {
                         ctResponse.setResponseCode("000");
                         ctResponse.setReferenceId(item.getReferenceNumber());
                         mariaDb.postingMessageAfterSuccessGetStatus(item, ctResponse);
-                        mariaDb.prosesAck(item);
+                        mariaDb.prosesAck(item, ackWriter);
+                        mariaDb.updateStatusBifastData(item, "GS000");
+                        return;
                         } else if (counterUpdate == 1) {
                         mariaDb.initiateRetryCheckStatus(item);
                         }
@@ -634,9 +664,9 @@ public class ProcessBifast {
                           mariaDb.insertDataSp2dBfast(item);
                         }
                         mariaDb.updateStatusBifastData(item,"GS029");
-
                 } else {
                     MainCHK.tulisLog("API Exception saat get status inquiry: " + e.getMessage());
+                    return;
                 }
             } catch (Exception e) {
                 MainCHK.tulisLog("Error memanggil API Status Inquiry: " + e.getMessage());
@@ -653,8 +683,8 @@ public class ProcessBifast {
                         // harus di cek
                         ctResponse.setReferenceId(item.getReferenceNumber());
                         mariaDb.postingMessageAfterSuccessGetStatus(item, ctResponse);
-                        mariaDb.prosesAck(item);
-                        
+                        mariaDb.prosesAck(item, ackWriter);
+
                         String documentNumberOnTableSp2dBifast = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
                         if (documentNumberOnTableSp2dBifast == null){
                             mariaDb.insertDataSp2dBfast(item);
@@ -675,19 +705,25 @@ public class ProcessBifast {
                         ctResponse.setResponseCode("000");
                         ctResponse.setReferenceId(item.getReferenceNumber());
                         mariaDb.postingMessageAfterSuccessGetStatus(item, ctResponse);
-                        mariaDb.prosesAck(item);
+                        mariaDb.prosesAck(item, ackWriter);
+                        mariaDb.updateStatusBifastData(item, "GS000");
                         } else if (counterUpdate == 1 ) {
                           mariaDb.initiateRetryCheckStatus(item);
                         }
                         MainCHK.tulisLog("Increment counter");
                         mariaDb.increaseCounterCheckstatusBifast(item, counterUpdate);
+                        String documentNumberOnTableSp2dBifast = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
+                        if (documentNumberOnTableSp2dBifast == null){
+                          mariaDb.insertDataSp2dBfast(item);
+                        }
+                        mariaDb.updateStatusBifastData(item,"GS029");
                     } catch (SQLException e) {
                         MainCHK.tulisLog("Error update counter retry status: " + e.getMessage());
                     }
                 } else {
                     MainCHK.tulisLog("Get status GAGAL/NOT FOUND [ResponseCode=" + tiResponse.getResponseCode() + ", Message=" + tiResponse.getResponseMessage() + "]. Melakukan proses retur & ACK gagal.");
                     try {
-                        executeTransactionRetur(item, mariaDb);
+                        executeTransactionRetur(item, mariaDb, ackWriter);
                     } catch (SQLException e) {
                         MainCHK.tulisLog("Error proses retur/ACK gagal setelah get status: " + e.getMessage());
                     }
@@ -702,7 +738,8 @@ public class ProcessBifast {
                         ctResponse.setResponseCode("000");
                         ctResponse.setReferenceId(item.getReferenceNumber());
                         mariaDb.postingMessageAfterSuccessGetStatus(item, ctResponse);
-                        mariaDb.prosesAck(item);
+                        mariaDb.prosesAck(item, ackWriter);
+                        mariaDb.updateStatusBifastData(item, "GS000");
                         }else if (counterUpdate == 1) {
                           mariaDb.initiateRetryCheckStatus(item);
                         }
@@ -718,7 +755,7 @@ public class ProcessBifast {
         }
     }
 
-    private void executeTransactionRetur(SpanSp2dStageIn item, ServiceMariaDb mariaDb) throws SQLException {
+    private void executeTransactionRetur(SpanSp2dStageIn item, ServiceMariaDb mariaDb, BufferedWriter ackWriter) throws SQLException {
         MainCHK.tulisLog("Initiate proses retur ke core banking untuk data sp2d dengan dokumen number "+item.getDocumentNumber());
         String debitAccount = mariaDb.getSpanconfig().getAcctIaKewajibanBifast();
         String creditAccount;
@@ -735,9 +772,11 @@ public class ProcessBifast {
                 creditAccount = mariaDb.getSpanconfig().getAcctRrReksusSbsn();
                 break;
         }
-        
+          ProsesAccountDetails prosesAccountDetails = new ProsesAccountDetails(configT24);
+          AccountDetailsSoapResponse accountDetailsSoapResponse = prosesAccountDetails.getCocode(debitAccount);
+
           ProsesRetur prosesRetur = new ProsesRetur(configT24);
-          FundsTransferSoapResponse resp = prosesRetur.returProcess(item, debitAccount, creditAccount, transactionType);
+          FundsTransferSoapResponse resp = prosesRetur.returProcess(item, debitAccount, creditAccount, transactionType,accountDetailsSoapResponse.getFirstDetail().coCode);
 
         if (resp != null && resp.isSuccess()) {
             MainCHK.tulisLog("Sukses retur pada T24, Transaction ID: " + resp.getTransactionId() + "Untuk dokumen number " + item.getDocumentNumber());
@@ -752,7 +791,7 @@ public class ProcessBifast {
 
             mariaDb.insertPostingCtFailure(item);
             mariaDb.insertReturDatainPostingTable(dataRetur, resp);
-            mariaDb.prosesAckRetur(item.getDocumentNumber());
+            mariaDb.prosesAckRetur(item.getDocumentNumber(), ackWriter);
 
             switch (item.getStatus().trim().toUpperCase()) {
                  case "RRS-000":
@@ -761,12 +800,11 @@ public class ProcessBifast {
                 case "RMR-000":
                      mariaDb.finalizeSuccessRecordsAfterReturManual(item);
                      break;
-                case "PST-000":
-                     mariaDb.finalizeSuccessRecords(item);
-                     break;
                 case "RGS-000":
                      mariaDb.finalizeSuccessRecordsAfterGetStatus(item);
                      break;
+                default:
+                    mariaDb.finalizeSuccessRecords(item);
              }
              String documentNumberOnTableSp2dBifast = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
                  if (documentNumberOnTableSp2dBifast == null){
@@ -819,10 +857,16 @@ public class ProcessBifast {
 
         for (int i=1; i<=processData.size(); i++){
             final int thread = i;
+            // [CHANGE][2026-09-08] Dedicated ACK writer per thread untuk prosesTimeoutCtBifast
             executor.submit(()->{
                MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread dimulai (Membuka koneksi MariaDB dedicated)...");
                ServiceMariaDb threadMariaDb = createMariaDbInstance();
+               GenerateAckOut ackGenerator = new GenerateAckOut();
+               String ackFilePath = null;
+               BufferedWriter ackWriter = null;
                try{
+                 ackFilePath = ackGenerator.createDedicatedAckFilePath(threadMariaDb.getSpanconfig());
+                 ackWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(ackFilePath, true)));
                  SpanSp2dStageIn item;
                  while((item = taskQueue.poll())!= null){
                     int count =processedCount.incrementAndGet();
@@ -830,19 +874,25 @@ public class ProcessBifast {
                     CreditTransferResponse ctResponse  = new CreditTransferResponse();
                     ctResponse.setResponseCode(item.getReturnCode());
                     try {
-                     handleCreditTransferTimeout(item, threadMariaDb);
+                     handleCreditTransferTimeout(item, threadMariaDb, ackWriter);
                     } catch (Exception e){
                         MainCHK.tulisLog("Error saat pemanggilan awal proses retur" + e.getMessage());
                     }
                  }
-                }finally{
+                } catch (IOException e) {
+                    MainCHK.tulisLog("[WORKER-" + thread + "] Error membuka dedicated ACK file: " + e.getMessage());
+                } finally{
+                    if (ackWriter != null) { try { ackWriter.close(); } catch (IOException e) {} }
+                    if (ackFilePath != null) {
+                        try { ackGenerator.copyToArchiveIfExists(threadMariaDb.getSpanconfig(), ackFilePath, new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date())); } catch (IOException e) {}
+                    }
                     try{
                      threadMariaDb.close();
                     }catch(Exception e ){
-                     MainCHK.tulisLog("[WORKER-" + thread + "] Error closing DB connection: " + e.getMessage()); 
+                     MainCHK.tulisLog("[WORKER-" + thread + "] Error closing DB connection: " + e.getMessage());
                     }
                 }
-                     MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread selesai (Koneksi DB ditutup).");
+                     MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread selesai (Koneksi DB & ACK writer ditutup).");
             });
 
             executor.shutdown();
@@ -875,28 +925,40 @@ public class ProcessBifast {
 
         for (int i=1 ; i <= numThreads ; i++){
             final int thread = i;
+            // [CHANGE][2026-09-08] Dedicated ACK writer per thread untuk prosesRetryRetur
             executor.submit(()->{
               MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread dimulai (Membuka koneksi MariaDB dedicated)...");
                ServiceMariaDb threadMariaDb = createMariaDbInstance();
+               GenerateAckOut ackGenerator = new GenerateAckOut();
+               String ackFilePath = null;
+               BufferedWriter ackWriter = null;
                try{
+                 ackFilePath = ackGenerator.createDedicatedAckFilePath(threadMariaDb.getSpanconfig());
+                 ackWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(ackFilePath, true)));
                  SpanSp2dStageIn item;
                  while((item = taskQueue.poll())!= null){
                     int count =processedCount.incrementAndGet();
                     MainCHK.tulisLog("[WORKER-" + thread + "] Memproses document: " + item.getDocumentNumber() + " (" + count + "/" + totalData + ")");
                     try {
-                     executeTransactionRetur(item,threadMariaDb);
+                     executeTransactionRetur(item, threadMariaDb, ackWriter);
                     } catch (SQLException e){
                         MainCHK.tulisLog("Error saat pemanggilan awal proses retur" + e.getMessage());
                     }
                  }
-                }finally{
+                } catch (IOException e) {
+                    MainCHK.tulisLog("[WORKER-" + thread + "] Error membuka dedicated ACK file: " + e.getMessage());
+                } finally{
+                    if (ackWriter != null) { try { ackWriter.close(); } catch (IOException e) {} }
+                    if (ackFilePath != null) {
+                        try { ackGenerator.copyToArchiveIfExists(threadMariaDb.getSpanconfig(), ackFilePath, new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date())); } catch (IOException e) {}
+                    }
                     try{
                      threadMariaDb.close();
                     }catch(Exception e ){
-                     MainCHK.tulisLog("[WORKER-" + thread + "] Error closing DB connection: " + e.getMessage()); 
+                     MainCHK.tulisLog("[WORKER-" + thread + "] Error closing DB connection: " + e.getMessage());
                     }
                 }
-                     MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread selesai (Koneksi DB ditutup).");
+                     MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread selesai (Koneksi DB & ACK writer ditutup).");
             });
         }
         executor.shutdown();
@@ -907,7 +969,6 @@ public class ProcessBifast {
             Thread.currentThread().interrupt();
         }
     }
-
 
     public void prosesRetur(List<SpanSp2dStageIn> processData) {
         MainCHK.tulisLog("Scheduler proses Retur dijalankan. Jumlah data: " + processData.size());
@@ -926,29 +987,40 @@ public class ProcessBifast {
 
         for (int i=1 ; i <= numThreads ; i++){
             final int thread = i;
+            // [CHANGE][2026-09-08] Dedicated ACK writer per thread untuk prosesRetur
             executor.submit(()->{
               MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread dimulai (Membuka koneksi MariaDB dedicated)...");
                ServiceMariaDb threadMariaDb = createMariaDbInstance();
+               GenerateAckOut ackGenerator = new GenerateAckOut();
+               String ackFilePath = null;
+               BufferedWriter ackWriter = null;
                try{
+                 ackFilePath = ackGenerator.createDedicatedAckFilePath(threadMariaDb.getSpanconfig());
+                 ackWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(ackFilePath, true)));
                  SpanSp2dStageIn item;
                  while((item = taskQueue.poll())!= null){
                     int count =processedCount.incrementAndGet();
                     MainCHK.tulisLog("[WORKER-" + thread + "] Memproses document: " + item.getDocumentNumber() + " (" + count + "/" + totalData + ")");
-
                     try {
-                     executeTransactionRetur(item, threadMariaDb);
+                     executeTransactionRetur(item, threadMariaDb, ackWriter);
                     } catch (SQLException e){
                         MainCHK.tulisLog("Error saat pemanggilan awal proses retur" + e.getMessage());
                     }
                  }
-                }finally{
+                } catch (IOException e) {
+                    MainCHK.tulisLog("[WORKER-" + thread + "] Error membuka dedicated ACK file: " + e.getMessage());
+                } finally{
+                    if (ackWriter != null) { try { ackWriter.close(); } catch (IOException e) {} }
+                    if (ackFilePath != null) {
+                        try { ackGenerator.copyToArchiveIfExists(threadMariaDb.getSpanconfig(), ackFilePath, new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date())); } catch (IOException e) {}
+                    }
                     try{
                      threadMariaDb.close();
                     }catch(Exception e ){
-                     MainCHK.tulisLog("[WORKER-" + thread + "] Error closing DB connection: " + e.getMessage()); 
+                     MainCHK.tulisLog("[WORKER-" + thread + "] Error closing DB connection: " + e.getMessage());
                     }
                 }
-                     MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread selesai (Koneksi DB ditutup).");
+                     MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread selesai (Koneksi DB & ACK writer ditutup).");
             });
         }
         executor.shutdown();
@@ -959,4 +1031,6 @@ public class ProcessBifast {
             Thread.currentThread().interrupt();
         }
     }
+
+
 }

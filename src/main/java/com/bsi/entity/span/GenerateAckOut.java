@@ -14,6 +14,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import com.bsi.MainCHK;
 import com.bsi.config.SpanConfig;
 import com.bsi.utility.Utillity;
@@ -23,7 +24,12 @@ public class GenerateAckOut {
     public String generateAckFile(Connection conn, SpanConfig config, List<SpanSp2dPosting> rows, Map<String, ReturnStatusAck> statusAckMap) throws IOException {
         
         String creationDateTime = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-        String fileName = config.getBankCode() + "_SP2D_FA_" + creationDateTime + ".out";
+        // [FIX][2026-09-08] Penambahan UUID sebagai suffix nama file ACK untuk mencegah race condition
+        // pada skenario multi-thread: dua thread yang memanggil generateAckFile pada detik yang sama
+        // akan menghasilkan nama file identik, sehingga FileOutputStream (tanpa append) akan menimpa
+        // (truncate) file milik thread lain dan menyebabkan data loss. UUID menjamin keunikan global
+        // tanpa ketergantungan pada granularitas timestamp maupun thread lifecycle.
+        String fileName = config.getBankCode() + "_SP2D_FA_" + creationDateTime + "_" + UUID.randomUUID() + ".out";
         String outputDir = config.getPathBo2spanHome() + config.getPathSpanAcknowledgePut();
         String outputPath = outputDir + File.separator + fileName;
         String currentDate =new SimpleDateFormat("yyyy-MM-dd").format(new Date());
@@ -59,6 +65,52 @@ public class GenerateAckOut {
         return outputPath;
     }
 
+
+    // [CHANGE][2026-09-08] Arsitektur baru: 1 dedicated file per thread dengan continuous append.
+    // Method ini dipanggil SEKALI saat thread dimulai untuk membuat file ACK milik thread tersebut.
+    // Nama file menggunakan UUID (tanpa hyphen) untuk menjamin keunikan global tanpa dependensi pada
+    // granularitas timestamp maupun thread lifecycle, sesuai standar dokumen keuangan.
+    public String createDedicatedAckFilePath(SpanConfig config) {
+        String creationDateTime = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+        String uniqueId = UUID.randomUUID().toString().replace("-", "");
+        String fileName = config.getBankCode() + "_SP2D_FA_" + creationDateTime + "_" + uniqueId + ".out";
+        String outputDir = config.getPathBo2spanHome() + config.getPathSpanAcknowledgePut();
+        new File(outputDir).mkdirs();
+        String outputPath = outputDir + File.separator + fileName;
+        MainCHK.tulisLog("[ACK] Dedicated file dibuat untuk thread [" + Thread.currentThread().getId() + "] -> " + outputPath);
+        return outputPath;
+    }
+
+    // [CHANGE][2026-09-08] Arsitektur baru: append baris ACK ke dedicated writer yang sudah dibuka.
+    // Tidak membuat file baru — writer dibuka oleh thread di awal dan ditutup di finally block thread.
+    // flush() dipanggil setelah setiap item agar data tidak tertahan di buffer jika thread mati mendadak.
+    public void appendAckLines(BufferedWriter bw, Connection conn, List<SpanSp2dPosting> rows, Map<String, ReturnStatusAck> statusAckMap) throws IOException {
+        String currentDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+        for (SpanSp2dPosting row : rows) {
+            ReturnStatusAck ack = statusAckMap.get(row.returnCode);
+            String code    = ack != null ? Utillity.safe(ack.code)        : "";
+            String ackDesc = ack != null ? Utillity.safe(ack.description) : "";
+            String description;
+            if (code.equals("B00")) {
+                description = ackDesc + " " + constructDescription(row.paymentMethod, conn);
+                code = code + row.paymentMethod;
+            } else {
+                description = ackDesc;
+            }
+            String line = String.join("|",
+                Utillity.safe(currentDate),
+                Utillity.safe(row.applicationareaMessageTypeIndicator),
+                Utillity.safe(row.documentNumber),
+                Utillity.safe(row.applicationareaMessageIdentifier),
+                Utillity.safe(row.applicationareaSenderIdentifier),
+                Utillity.safe(code),
+                Utillity.safe(description)
+            );
+            bw.write(line);
+            bw.newLine();
+        }
+        bw.flush();
+    }
 
     public String constructDescription(String paymentMethod , Connection conn){
        String result="";

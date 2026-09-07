@@ -9,7 +9,7 @@ import java.util.List;
 public class FundsTransferSoapResponse {
 
     @XmlElement(name = "Status")
-    public Status status;
+    public Status status = new Status();
 
     @XmlElement(name = "FUNDSTRANSFERType")
     public FundsTransferType fundsTransferType;
@@ -25,24 +25,24 @@ public class FundsTransferSoapResponse {
 
     // ------------------------------------------------------------------
 
-    @XmlAccessorType(XmlAccessType.FIELD)
-    public static class Status {
-        @XmlElement(name = "transactionId")    public String transactionId;
-        @XmlElement(name = "messageId")        public String messageId;
-        @XmlElement(name = "successIndicator") public String successIndicator;
-        @XmlElement(name = "application")      public String application;
-
-        /** Diisi server bila gagal (umumnya berisi pesan error OFS) */
-        @XmlElement(name = "messages")
-        public List<String> messages = new ArrayList<String>();
-
-        @Override
-        public String toString() {
-            return "Status{transactionId='" + transactionId + "', messageId='" + messageId
-                    + "', successIndicator='" + successIndicator + "', application='" + application
-                    + (messages.isEmpty() ? "" : "', messages=" + messages) + "'}";
-        }
-    }
+//    @XmlAccessorType(XmlAccessType.FIELD)
+//    public static class Status {
+//        @XmlElement(name = "transactionId")    public String transactionId;
+//        @XmlElement(name = "messageId")        public String messageId;
+//        @XmlElement(name = "successIndicator") public String successIndicator;
+//        @XmlElement(name = "application")      public String application;
+//
+//        /** Diisi server bila gagal (umumnya berisi pesan error OFS) */
+//        @XmlElement(name = "messages")
+//        public List<String> messages = new ArrayList<String>();
+//
+//        @Override
+//        public String toString() {
+//            return "Status{transactionId='" + transactionId + "', messageId='" + messageId
+//                    + "', successIndicator='" + successIndicator + "', application='" + application
+//                    + (messages.isEmpty() ? "" : "', messages=" + messages) + "'}";
+//        }
+//    }
 
     @XmlAccessorType(XmlAccessType.FIELD)
     public static class FundsTransferType {

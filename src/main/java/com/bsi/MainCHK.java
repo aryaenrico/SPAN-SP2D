@@ -1,8 +1,8 @@
 package com.bsi;
 
 import com.bsi.config.BifastConfig;
-import com.bsi.entity.mock.ProcessBifast;
-import com.bsi.entity.mock.SpanSp2dStageIn;
+import com.bsi.service.ProcessBifast;
+import com.bsi.entity.span.SpanSp2dStageIn;
 import com.bsi.entity.span.PathPropertiesBifast;
 import com.bsi.service.ServiceMariaDb;
 import java.io.File;
