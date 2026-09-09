@@ -1,9 +1,12 @@
 package com.bsi.entity.span;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -18,6 +21,7 @@ import java.util.UUID;
 import com.bsi.MainCHK;
 import com.bsi.config.SpanConfig;
 import com.bsi.utility.Utillity;
+import jdk.tools.jmod.Main;
 
 public class GenerateAckOut {
 
@@ -29,7 +33,8 @@ public class GenerateAckOut {
         // akan menghasilkan nama file identik, sehingga FileOutputStream (tanpa append) akan menimpa
         // (truncate) file milik thread lain dan menyebabkan data loss. UUID menjamin keunikan global
         // tanpa ketergantungan pada granularitas timestamp maupun thread lifecycle.
-        String fileName = config.getBankCode() + "_SP2D_FA_" + creationDateTime + "_" + UUID.randomUUID() + ".out";
+        String unique = UUID.randomUUID().toString().substring(1,3);
+        String fileName = config.getBankCode() + "_SP2D_FA_" + creationDateTime + "_" + unique + ".out";
         String outputDir = config.getPathBo2spanHome() + config.getPathSpanAcknowledgePut();
         String outputPath = outputDir + File.separator + fileName;
         String currentDate =new SimpleDateFormat("yyyy-MM-dd").format(new Date());
@@ -138,9 +143,45 @@ public class GenerateAckOut {
         Files.copy(source.toPath(), new File(archivePath).toPath(), StandardCopyOption.REPLACE_EXISTING);
     }
 
+    // [CHANGE][2026-09-08] Merge file ACK per-thread menjadi satu file tunggal setelah semua thread selesai.
+    // Dipanggil dari main thread (single-thread) sehingga tidak ada race condition.
+    // File individual dihapus setelah berhasil di-merge; hanya file merged yang di-archive.
+    public String mergeAckFiles(SpanConfig config, List<String> filePaths) throws IOException {
+        String creationDateTime = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+        String fileName = config.getBankCode() + "_SP2D_FA_" + creationDateTime + ".out";
+        String outputDir = config.getPathBo2spanHome() + config.getPathSpanAcknowledgePut();
+        new File(outputDir).mkdirs();
+        String mergedPath = outputDir + File.separator + fileName;
+
+        MainCHK.tulisLog("[ACK-MERGE] Memulai merge " + filePaths.size() + " file ACK ke: " + mergedPath);
+        try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(mergedPath)))) {
+            for (String filePath : filePaths) {
+                File f = new File(filePath);
+                if (!f.exists()) {
+                    MainCHK.tulisLog("[ACK-MERGE] File tidak ditemukan, dilewati: " + filePath);
+                    continue;
+                }
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(f)))) {
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        bw.write(line);
+                        bw.newLine();
+                    }
+                }
+                f.delete();
+                MainCHK.tulisLog("[ACK-MERGE] File thread dihapus setelah merge: " + filePath);
+            }
+        }
+        MainCHK.tulisLog("[ACK-MERGE] Merge selesai -> " + mergedPath);
+        return mergedPath;
+    }
+
     public void updateFlagAck(Connection conn, SpanConfig ctx , SpanSp2dPosting data) throws SQLException {
         String sql =Utillity.updateFlagAckTablePosting();
+        String updateFlagAckStageIn = Utillity.updateFlagAckDoubeTable("span_sp2d_stage_in");
         String transactionType = Utillity.getTransactionTypeForAck(data,ctx);
+
+        MainCHK.tulisLog("transaction type Ack : "+ transactionType);
 
         //USE FOR DYNAMIC Account retur
         String paramRR1 ="";
@@ -150,7 +191,7 @@ public class GenerateAckOut {
         String paramInclude1="";
         String paramInclude2="";
 
-        switch (transactionType) {
+        switch (transactionType.trim().toUpperCase()) {
             case "BO2":
                 paramRR1 = ctx.getAcctRrRpkbunGaji();
                 paramRR2 = ctx.getAcctRrReksusSbsn();
@@ -161,8 +202,13 @@ public class GenerateAckOut {
                 paramRR1 = ctx.getAcctRrRpkbunNonGaji();
                 paramRR2 = ctx.getAcctRrReksusSbsn();
                 paramInclude1 =ctx.getAcctRrRpkbunNonGaji();
-                paramInclude2 = ctx.getAcctRrRpkbunNonGaji();
+                paramInclude2 = ctx.getAcctRpkbunNonGaji();
                 break;
+            default :
+                paramRR1 = ctx.getAcctRpkbunGaji();
+                paramRR2 = ctx.getAcctRpkbunNonGaji();
+                paramInclude1 =ctx.getAcctRrReksusSbsn();
+                paramInclude2 = ctx.getAcctRpkbunNonGaji();
         }
 
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -173,6 +219,11 @@ public class GenerateAckOut {
             ps.setString(5, data.documentNumber);
             ps.executeUpdate();
         }
+
+        try(PreparedStatement ps2 = conn.prepareStatement(updateFlagAckStageIn)){
+            ps2.setString(1,data.documentNumber);
+            ps2.executeUpdate();
+        }
     }
 
     public void updateFlagAckRetur(Connection conn, SpanConfig ctx , SpanSp2dPosting data) throws SQLException {
@@ -182,6 +233,8 @@ public class GenerateAckOut {
     public void updateFlagAckBatch(Connection conn, SpanConfig ctx , SpanSp2dPosting data) throws SQLException {
        updateFlagAckDoubleTable(conn, ctx, data);
     }
+
+
 
     private void updateFlagAckDoubleTable(Connection conn, SpanConfig ctx , SpanSp2dPosting data) throws SQLException{
        String sql =Utillity.updateFlagAckDoubeTable("span_sp2d_posting"); 
@@ -196,8 +249,4 @@ public class GenerateAckOut {
             ps2.executeUpdate();
         }
     }
-
-    
-
-
 }

@@ -14,17 +14,22 @@ public class ProsesAccountDetails {
             this.client = new T24Client(this.configT24);
         }
 
-        public AccountDetailsSoapResponse getCocode(String debitAcct){
+        public String getCocode (String debitAcct){
+            String result = null;
             AccountDetailsSoapRequest req = new AccountDetailsSoapRequest();
             req.idiAccountCmsType.enquiryInputCollection.add(
                     new AccountDetailsSoapRequest.EnquiryInput("ID", debitAcct, "EQ"));
-            return client.accountDetails(req);
+            try {
+                AccountDetailsSoapResponse response = client.accountDetails(req);
+                if (response != null && response.isSuccess()) {
+                    AccountDetailsSoapResponse.MIdiAccountCmsDetailType detail = response.getFirstDetail();
+                    if (detail != null) {
+                        result = detail.coCode;
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return result;
         }
-
-
-
-
-
-
-
 }

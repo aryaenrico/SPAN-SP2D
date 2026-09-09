@@ -8,9 +8,10 @@ import javax.xml.bind.annotation.XmlType;
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "WebRequestCommon")
 public class WebRequestCommon {
-    @XmlElement(name = "company") private String company;
+
     @XmlElement(name = "userName") private String userName;
     @XmlElement(name = "password") private String password;
+    @XmlElement(name = "company") private String company;
 
     public String getCompany() {
         return company;

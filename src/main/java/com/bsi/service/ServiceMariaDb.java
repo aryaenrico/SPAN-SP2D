@@ -967,6 +967,7 @@ public class ServiceMariaDb {
             ps.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
             ps.setString(2,statusReadyPosting);
             ps.setString(3,stagein.getDocumentNumber());
+            MainCHK.tulisLog("Query Fin : "+ps);
             int updated = ps.executeUpdate();
         System.out.println("Finalized " + updated + " record(s): PST-000 → FIN-000");
     }
@@ -1877,10 +1878,10 @@ public class ServiceMariaDb {
     MainCHK.tulisLog("saldo [" + account_number + "]:[" + amount_balance + "]");
 
     BigDecimal tempAmount = BigDecimal.ZERO;
-    boolean flagSaldo = false;
-    List<String> listRegular = new ArrayList<>();
-    List<String> excludeBifastSp2d = new ArrayList<>();
-    List<String> includeBifastSp2d = new ArrayList<>();
+    boolean flagSaldoTidakCukup = false;
+
+    List<String> excludeSp2d = new ArrayList<>();
+    List<String> includeSp2d = new ArrayList<>();
 
     try (PreparedStatement qSelectSP2D = conn.prepareStatement(Utillity.getSaldoGroupByMessageIndetifier(3))) {
         qSelectSP2D.setString(1, account_number);
@@ -1898,40 +1899,29 @@ public class ServiceMariaDb {
                     tempAmount = tempAmount.add(sumAmount);
                    
                 }
-                String status = rsSP2D.getString("status");
+
                 String msgId = rsSP2D.getString("applicationareamessageidentifier");
 
-
                 if (amount_balance.compareTo(tempAmount) < 0) {
-                    if (flaggingBifast.equals(status)) {
-                        excludeBifastSp2d.add(msgId);
-                    } else {
-                        listRegular.add(msgId);
-                    }
+                    excludeSp2d.add(msgId);
                 } else {
-                    if (flaggingBifast.equals(status)) {
-                        includeBifastSp2d.add(msgId);
-                    }
+                    includeSp2d.add(msgId);
                 }
             }
         }
     }
 
-    if (!listRegular.isEmpty()) {
-        flagSaldo = true;
-        executeUpdateStatusForExclude(listRegular, statusWaitingDropping, account_number, statusReadyProses);
+    if (!excludeSp2d.isEmpty()) {
+        flagSaldoTidakCukup = true;
+        executeUpdateStatusForExclude(excludeSp2d, statusWaitingDropping, account_number, statusReadyProses);
+        executeUpdateStatusForExclude(excludeSp2d, statusWaitingDroppingBifast, account_number, flaggingBifast);
     }
 
-    if (!excludeBifastSp2d.isEmpty()) {
-        flagSaldo = true;
-        executeUpdateStatusForExclude(excludeBifastSp2d, statusWaitingDroppingBifast, account_number, flaggingBifast);
+    if (!includeSp2d.isEmpty()) {
+        executeUpdateStatusForExclude(includeSp2d, statusReadyProsesBifast, account_number, flaggingBifast);
     }
 
-    if (!includeBifastSp2d.isEmpty()) {
-        executeUpdateStatusForExclude(includeBifastSp2d, statusReadyProsesBifast, account_number, flaggingBifast);
-    }
-
-    if (!flagSaldo) {
+    if (!flagSaldoTidakCukup) {
         MainCHK.tulisLog("Saldo Cukup untuk semua SP2D saat ini");
     }
 }

@@ -15,9 +15,11 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import com.bsi.config.SpanConfig;
 import com.bsi.entity.span.SpanSp2dStageIn;
-import com.bsi.entity.t24.AccountDetailsSoapResponse;
 import com.bsi.MainCHK;
 import com.bsi.config.BifastConfig;
 import com.bsi.config.T24Config;
@@ -34,6 +36,7 @@ import com.bsi.entity.span.PathPropertiesBifast;
 import com.bsi.entity.t24.FundsTransferSoapResponse;
 import com.bsi.utility.RequestIdGenerator;
 import com.bsi.utility.Utillity;
+
 
 
 public class ProcessBifast {
@@ -102,6 +105,9 @@ public class ProcessBifast {
 
         Queue<SpanSp2dStageIn> taskQueue = new ConcurrentLinkedQueue<>(processData);
         AtomicInteger processedCount = new AtomicInteger(0);
+        // [CHANGE][2026-09-08] Kumpulkan path file ACK tiap thread untuk di-merge setelah semua selesai
+        ConcurrentLinkedQueue<String> ackFilePaths = new ConcurrentLinkedQueue<>();
+        AtomicReference<SpanConfig> spanConfigRef = new AtomicReference<>();
 
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
@@ -130,11 +136,13 @@ public class ProcessBifast {
             executor.submit(() -> {
                 MainCHK.tulisLog("[WORKER-" + threadId + "] Worker thread dimulai (Membuka koneksi MariaDB dedicated)...");
                 ServiceMariaDb threadMariaDb = createMariaDbInstance();
+                spanConfigRef.compareAndSet(null, threadMariaDb.getSpanconfig());
                 GenerateAckOut ackGenerator = new GenerateAckOut();
                 String ackFilePath = null;
                 BufferedWriter ackWriter = null;
                 try {
                     ackFilePath = ackGenerator.createDedicatedAckFilePath(threadMariaDb.getSpanconfig());
+                    ackFilePaths.add(ackFilePath);
                     ackWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(ackFilePath, true)));
                     SpanSp2dStageIn item;
                     while ((item = taskQueue.poll()) != null) {
@@ -150,14 +158,6 @@ public class ProcessBifast {
                             ackWriter.close();
                         } catch (IOException e) {
                             MainCHK.tulisLog("[WORKER-" + threadId + "] Error menutup ACK writer: " + e.getMessage());
-                        }
-                    }
-                    if (ackFilePath != null) {
-                        try {
-                            ackGenerator.copyToArchiveIfExists(threadMariaDb.getSpanconfig(), ackFilePath,
-                                    new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date()));
-                        } catch (IOException e) {
-                            MainCHK.tulisLog("[WORKER-" + threadId + "] Error copy ACK ke archive: " + e.getMessage());
                         }
                     }
                     try {
@@ -179,6 +179,19 @@ public class ProcessBifast {
         } finally {
             // Unregister shutdown hook jika proses selesai dengan normal
             try { Runtime.getRuntime().removeShutdownHook(shutdownHook); } catch (Exception e) {}
+        }
+
+        // [CHANGE][2026-09-08] Merge semua file ACK per-thread menjadi 1 file tunggal (single-thread)
+        SpanConfig spanConfig = spanConfigRef.get();
+        if (spanConfig != null && !ackFilePaths.isEmpty()) {
+            try {
+                GenerateAckOut mergeGenerator = new GenerateAckOut();
+                String mergedPath = mergeGenerator.mergeAckFiles(spanConfig, new ArrayList<>(ackFilePaths));
+                mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath,
+                        new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date()));
+            } catch (IOException e) {
+                MainCHK.tulisLog("[ACK-MERGE] Error saat merge/archive ACK files: " + e.getMessage());
+            }
         }
 
         // [IMPROVEMENT][2026-08-11] Cetak Operational Summary Metrics ke Log
@@ -460,10 +473,8 @@ public class ProcessBifast {
                  MainCHK.tulisLog("account inactive");
                dataClone.setReturnCode("78");
             }
-            
-            
-            dataClone.setReferenceNumber(ctResponse.getReferenceId());
 
+            dataClone.setReferenceNumber(ctResponse.getReferenceId());
             mariaDb.updateErrorDataForReturProcess(dataClone);
             executeTransactionRetur(dataClone, mariaDb, ackWriter);
         }
@@ -504,9 +515,9 @@ public class ProcessBifast {
                 creditAccount = mariaDb.getSpanconfig().getAcctRrReksusSbsn();
         }
         ProsesAccountDetails prosesAccountDetails = new ProsesAccountDetails(configT24);
-        AccountDetailsSoapResponse accountDetailsSoapResponse = prosesAccountDetails.getCocode(debitAccount);
+       String coCode = prosesAccountDetails.getCocode(debitAccount);
         ProsesRetur prosesRetur = new ProsesRetur(configT24);
-        FundsTransferSoapResponse resp = prosesRetur.returProcess(item, debitAccount, creditAccount, transactionType,accountDetailsSoapResponse.getFirstDetail().coCode);
+        FundsTransferSoapResponse resp = prosesRetur.returProcess(item, debitAccount, creditAccount, transactionType,coCode);
     
         if (resp != null && resp.isSuccess()) {
             try {
@@ -567,8 +578,8 @@ public class ProcessBifast {
         ctRequest.setRequestId(RequestIdGenerator.generateRequestID());
         ctRequest.setRequestDate(RequestIdGenerator.currentRequestDate());
         ctRequest.setTwsMsgId(item.getDocumentNumber());
-        ctRequest.setChannelType("99");
-        ctRequest.setCategoryPurposeCode("03");
+        ctRequest.setChannelType("07");
+        ctRequest.setCategoryPurposeCode("99");
         ctRequest.setInterbankSettlementAmount(item.getAmount().toString());
         ctRequest.setChargeBearerCode("DEBT");
         ctRequest.setDebitorAccountId(item.getAgentBankAccountNumber());
@@ -773,10 +784,10 @@ public class ProcessBifast {
                 break;
         }
           ProsesAccountDetails prosesAccountDetails = new ProsesAccountDetails(configT24);
-          AccountDetailsSoapResponse accountDetailsSoapResponse = prosesAccountDetails.getCocode(debitAccount);
+           String coCode = prosesAccountDetails.getCocode(debitAccount);
 
           ProsesRetur prosesRetur = new ProsesRetur(configT24);
-          FundsTransferSoapResponse resp = prosesRetur.returProcess(item, debitAccount, creditAccount, transactionType,accountDetailsSoapResponse.getFirstDetail().coCode);
+          FundsTransferSoapResponse resp = prosesRetur.returProcess(item, debitAccount, creditAccount, transactionType,coCode);
 
         if (resp != null && resp.isSuccess()) {
             MainCHK.tulisLog("Sukses retur pada T24, Transaction ID: " + resp.getTransactionId() + "Untuk dokumen number " + item.getDocumentNumber());
@@ -787,14 +798,13 @@ public class ProcessBifast {
 
             // confirm value nya apa
             dataRetur.setAgentBankAccountName("IA KEWAJIBAN BIFAST");
-          
 
             mariaDb.insertPostingCtFailure(item);
             mariaDb.insertReturDatainPostingTable(dataRetur, resp);
             mariaDb.prosesAckRetur(item.getDocumentNumber(), ackWriter);
-
+            MainCHK.tulisLog("status :"+item.getStatus().trim().toUpperCase());
             switch (item.getStatus().trim().toUpperCase()) {
-                 case "RRS-000":
+                case "RRS-000":
                      mariaDb.finalizeSuccessRecordsAfterRetyRetur(item);
                      break; 
                 case "RMR-000":
@@ -852,6 +862,9 @@ public class ProcessBifast {
         
         Queue<SpanSp2dStageIn> taskQueue = new ConcurrentLinkedQueue<>(processData);
         AtomicInteger processedCount = new AtomicInteger(0);
+        // [CHANGE][2026-09-08] Kumpulkan path file ACK tiap thread untuk di-merge setelah semua selesai
+        ConcurrentLinkedQueue<String> ackFilePaths = new ConcurrentLinkedQueue<>();
+        AtomicReference<SpanConfig> spanConfigRef = new AtomicReference<>();
 
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
@@ -861,11 +874,13 @@ public class ProcessBifast {
             executor.submit(()->{
                MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread dimulai (Membuka koneksi MariaDB dedicated)...");
                ServiceMariaDb threadMariaDb = createMariaDbInstance();
+               spanConfigRef.compareAndSet(null, threadMariaDb.getSpanconfig());
                GenerateAckOut ackGenerator = new GenerateAckOut();
                String ackFilePath = null;
                BufferedWriter ackWriter = null;
                try{
                  ackFilePath = ackGenerator.createDedicatedAckFilePath(threadMariaDb.getSpanconfig());
+                 ackFilePaths.add(ackFilePath);
                  ackWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(ackFilePath, true)));
                  SpanSp2dStageIn item;
                  while((item = taskQueue.poll())!= null){
@@ -883,9 +898,6 @@ public class ProcessBifast {
                     MainCHK.tulisLog("[WORKER-" + thread + "] Error membuka dedicated ACK file: " + e.getMessage());
                 } finally{
                     if (ackWriter != null) { try { ackWriter.close(); } catch (IOException e) {} }
-                    if (ackFilePath != null) {
-                        try { ackGenerator.copyToArchiveIfExists(threadMariaDb.getSpanconfig(), ackFilePath, new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date())); } catch (IOException e) {}
-                    }
                     try{
                      threadMariaDb.close();
                     }catch(Exception e ){
@@ -904,7 +916,20 @@ public class ProcessBifast {
             }
 
         }
-        
+
+        // [CHANGE][2026-09-08] Merge semua file ACK per-thread menjadi 1 file tunggal (single-thread)
+        SpanConfig spanConfig = spanConfigRef.get();
+        if (spanConfig != null && !ackFilePaths.isEmpty()) {
+            try {
+                GenerateAckOut mergeGenerator = new GenerateAckOut();
+                String mergedPath = mergeGenerator.mergeAckFiles(spanConfig, new ArrayList<>(ackFilePaths));
+                mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath,
+                        new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date()));
+            } catch (IOException e) {
+                MainCHK.tulisLog("[ACK-MERGE] Error saat merge/archive ACK files: " + e.getMessage());
+            }
+        }
+
     }
 
     //  Method scheduler untuk memproses ulang data berstatus RRS-000 (Retry Retur FT T24)
@@ -920,6 +945,9 @@ public class ProcessBifast {
         
         Queue<SpanSp2dStageIn> taskQueue = new ConcurrentLinkedQueue<>(processData);
         AtomicInteger processedCount = new AtomicInteger(0);
+        // [CHANGE][2026-09-08] Kumpulkan path file ACK tiap thread untuk di-merge setelah semua selesai
+        ConcurrentLinkedQueue<String> ackFilePaths = new ConcurrentLinkedQueue<>();
+        AtomicReference<SpanConfig> spanConfigRef = new AtomicReference<>();
 
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
@@ -929,11 +957,13 @@ public class ProcessBifast {
             executor.submit(()->{
               MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread dimulai (Membuka koneksi MariaDB dedicated)...");
                ServiceMariaDb threadMariaDb = createMariaDbInstance();
+               spanConfigRef.compareAndSet(null, threadMariaDb.getSpanconfig());
                GenerateAckOut ackGenerator = new GenerateAckOut();
                String ackFilePath = null;
                BufferedWriter ackWriter = null;
                try{
                  ackFilePath = ackGenerator.createDedicatedAckFilePath(threadMariaDb.getSpanconfig());
+                 ackFilePaths.add(ackFilePath);
                  ackWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(ackFilePath, true)));
                  SpanSp2dStageIn item;
                  while((item = taskQueue.poll())!= null){
@@ -949,9 +979,6 @@ public class ProcessBifast {
                     MainCHK.tulisLog("[WORKER-" + thread + "] Error membuka dedicated ACK file: " + e.getMessage());
                 } finally{
                     if (ackWriter != null) { try { ackWriter.close(); } catch (IOException e) {} }
-                    if (ackFilePath != null) {
-                        try { ackGenerator.copyToArchiveIfExists(threadMariaDb.getSpanconfig(), ackFilePath, new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date())); } catch (IOException e) {}
-                    }
                     try{
                      threadMariaDb.close();
                     }catch(Exception e ){
@@ -962,11 +989,24 @@ public class ProcessBifast {
             });
         }
         executor.shutdown();
-         try {
+        try {
             executor.awaitTermination(2, TimeUnit.HOURS);
         } catch (InterruptedException e) {
             MainCHK.tulisLog("[MULTI-THREAD] Interrupted saat menunggu worker threads: " + e.getMessage());
             Thread.currentThread().interrupt();
+        }
+
+        // [CHANGE][2026-09-08] Merge semua file ACK per-thread menjadi 1 file tunggal (single-thread)
+        SpanConfig spanConfig = spanConfigRef.get();
+        if (spanConfig != null && !ackFilePaths.isEmpty()) {
+            try {
+                GenerateAckOut mergeGenerator = new GenerateAckOut();
+                String mergedPath = mergeGenerator.mergeAckFiles(spanConfig, new ArrayList<>(ackFilePaths));
+                mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath,
+                        new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date()));
+            } catch (IOException e) {
+                MainCHK.tulisLog("[ACK-MERGE] Error saat merge/archive ACK files: " + e.getMessage());
+            }
         }
     }
 
@@ -982,6 +1022,9 @@ public class ProcessBifast {
         
         Queue<SpanSp2dStageIn> taskQueue = new ConcurrentLinkedQueue<>(processData);
         AtomicInteger processedCount = new AtomicInteger(0);
+        // [CHANGE][2026-09-08] Kumpulkan path file ACK tiap thread untuk di-merge setelah semua selesai
+        ConcurrentLinkedQueue<String> ackFilePaths = new ConcurrentLinkedQueue<>();
+        AtomicReference<SpanConfig> spanConfigRef = new AtomicReference<>();
 
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
@@ -991,11 +1034,13 @@ public class ProcessBifast {
             executor.submit(()->{
               MainCHK.tulisLog("[WORKER-" + thread + "] Worker thread dimulai (Membuka koneksi MariaDB dedicated)...");
                ServiceMariaDb threadMariaDb = createMariaDbInstance();
+               spanConfigRef.compareAndSet(null, threadMariaDb.getSpanconfig());
                GenerateAckOut ackGenerator = new GenerateAckOut();
                String ackFilePath = null;
                BufferedWriter ackWriter = null;
                try{
                  ackFilePath = ackGenerator.createDedicatedAckFilePath(threadMariaDb.getSpanconfig());
+                 ackFilePaths.add(ackFilePath);
                  ackWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(ackFilePath, true)));
                  SpanSp2dStageIn item;
                  while((item = taskQueue.poll())!= null){
@@ -1011,9 +1056,6 @@ public class ProcessBifast {
                     MainCHK.tulisLog("[WORKER-" + thread + "] Error membuka dedicated ACK file: " + e.getMessage());
                 } finally{
                     if (ackWriter != null) { try { ackWriter.close(); } catch (IOException e) {} }
-                    if (ackFilePath != null) {
-                        try { ackGenerator.copyToArchiveIfExists(threadMariaDb.getSpanconfig(), ackFilePath, new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date())); } catch (IOException e) {}
-                    }
                     try{
                      threadMariaDb.close();
                     }catch(Exception e ){
@@ -1024,11 +1066,24 @@ public class ProcessBifast {
             });
         }
         executor.shutdown();
-         try {
+        try {
             executor.awaitTermination(2, TimeUnit.HOURS);
         } catch (InterruptedException e) {
             MainCHK.tulisLog("[MULTI-THREAD] Interrupted saat menunggu worker threads: " + e.getMessage());
             Thread.currentThread().interrupt();
+        }
+
+        // [CHANGE][2026-09-08] Merge semua file ACK per-thread menjadi 1 file tunggal (single-thread)
+        SpanConfig spanConfig = spanConfigRef.get();
+        if (spanConfig != null && !ackFilePaths.isEmpty()) {
+            try {
+                GenerateAckOut mergeGenerator = new GenerateAckOut();
+                String mergedPath = mergeGenerator.mergeAckFiles(spanConfig, new ArrayList<>(ackFilePaths));
+                mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath,
+                        new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date()));
+            } catch (IOException e) {
+                MainCHK.tulisLog("[ACK-MERGE] Error saat merge/archive ACK files: " + e.getMessage());
+            }
         }
     }
 

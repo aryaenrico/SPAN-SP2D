@@ -14,6 +14,8 @@ public class AccountDetailsSoapResponse {
     @XmlElement(name = "IDIACCOUNTCMSType")
     public IdiAccountCmsType idiAccountCmsType;
 
+
+
     /** Sukses jika successIndicator == "Success" */
     public boolean isSuccess() {
         return status != null && "Success".equalsIgnoreCase(status.successIndicator);

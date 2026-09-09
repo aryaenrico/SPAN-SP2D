@@ -77,6 +77,7 @@ public class Utillity {
                 case "ACCT_RPKBUN_NON_GAJI" : config.setAcctRpkbunNonGaji(value);break;
                 case "ACCT_RR_RPKBUN_NON_GAJI": config.setAcctRrRpkbunNonGaji(value);break;
                 case "X_ACCT_RR_REKSUS_SBSN" :config.setAcctRrReksusSbsn(value);break;
+                case "X_ACCT_REKSUS_SBSN" :config.setAcctReksusSbsn(value);break;
                 case "ACCT_IA_KEWAJIBAN_BIFAST": config.setAcctIaKewajibanBifats(value);break;
             }
         }
@@ -90,7 +91,7 @@ public class Utillity {
         for (int i = 0; i < paramCount; i++) {
             sb.append(i == 0 ? "?" : ",?");
         }
-     return "select applicationareamessageidentifier, count(1) count, sum(amount) sumamount , status " +
+     return "select applicationareamessageidentifier, count(1) count, sum(amount) sumamount " +
                         "from span_sp2d_stage_in " +
                         "where documentdate = (" +
                         "    select config_value " +
@@ -442,7 +443,7 @@ public static String extractBifastDescription (String bifastDescription) {
         } else {
             result = "REKSUS";
         }
-        return result;
+        return result.trim().toUpperCase();
     }
 
    public static String finalizeSuccesRecord(String sourceAccount , String sourceRetur ){

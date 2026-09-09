@@ -13,7 +13,6 @@ public class ProsesRetur {
     private T24Client t24Client;
 
     public ProsesRetur(T24Config t24Config){
-
         this.configT24 =t24Config;
         this.t24Client = new T24Client(configT24);
     }
@@ -31,6 +30,7 @@ public class ProsesRetur {
                      
         FundsTransferSoapRequest ftRequest = new FundsTransferSoapRequest();
         ftRequest.ofsFunction.messageId = item.getDocumentNumber()+"02";
+        ftRequest.webRequestCommon.setCompany(coCode);
         FundsTransferSoapRequest.FundsTransferIdiAcctTrfCmsType ft = ftRequest.fundsTransfer;
         ft.transactionType = transactionType;
         ft.debitAccount = debitAcct;
@@ -47,8 +47,7 @@ public class ProsesRetur {
         ft.rekeningBiaya = null;
         ft.kodeBiaya = null;
         ft.gCommissionType = null;
-        ft.profitCentreDept = "200";
-        ft.msgId = RequestIdGenerator.generateRequestID();
+        ft.msgId = item.getDocumentNumber()+"02";
  
         return t24Client.fundsTransfer(ftRequest);
     }
