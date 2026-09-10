@@ -1821,7 +1821,7 @@ public class ServiceMariaDb {
 
         //return code yang awalnya dari core menjadi dari balikan response tws
         if (response.isSuccess()){
-          rec.returnCode= "400";
+          rec.returnCode= "000";
           rec.referenceNumber = response.getTransactionId();
         }else {
           rec.returnCode= response.getTransactionId();

@@ -14,7 +14,14 @@ public class BifastDemo {
     public static void main(String[] args) {
         System.out.println("Start");
         //ServiceMariaDb mariaDb = new ServiceMariaDb("C:\\Users\\ven.arya\\Downloads\\Project\\2026\\SPAN\\Custom Handler\\span-custom-handler\\tesDs", "bo2span");
-        
+        String data = "61 Account Inactive";
+        if (data.contains("78")){
+            System.out.println("data dormant");
+        }else {
+            System.out.println("data tidak dorman");
+        }
+
+        System.exit(0);
 
      /*
         try{

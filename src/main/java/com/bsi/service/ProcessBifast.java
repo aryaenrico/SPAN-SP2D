@@ -244,38 +244,41 @@ public class ProcessBifast {
               MainCHK.tulisLog("Error update DB saat AE timeout: " + sqlEx.getMessage());
           }
         } else {
-        // Pengecekan spesifik untuk HTTP Status Code 404 (Not Found) dan 500 (Internal Server Error)
-          int httpCode = aeEx.getHttpStatus();
-        if (httpCode == 404) {
-               MainCHK.tulisLog(" Response HTTP 404 (Not Found) saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
-        try {
-             String documentNumberOnTable = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
-                if (documentNumberOnTable == null){
-                    mariaDb.insertDataSp2dBfast(item);
-                }
-            mariaDb.handleAccountInquiryError(item, "404", mappingRcAe);
-        } catch (SQLException sqlEx) {
-            MainCHK.tulisLog("Error update DB saat AE HTTP 404: " + sqlEx.getMessage());
-        }
-    } else if (httpCode == 508) {
-        MainCHK.tulisLog("Response HTTP 508 saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
-        try {
-             String documentNumberOnTable = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
-                if (documentNumberOnTable == null){
-                    mariaDb.insertDataSp2dBfast(item);
-                }
-            mariaDb.handleAccountInquiryError(item, "508", mappingRcAe);
-        } catch (SQLException sqlEx) {
-            MainCHK.tulisLog("Error update DB saat AE HTTP 508: " + sqlEx.getMessage());
-        }
-        }
-            return;
-    }
+               // Pengecekan spesifik untuk HTTP Status Code 404 (Not Found) dan 500 (Internal Server Error)
+               int httpCode = aeEx.getHttpStatus();
+               if (httpCode == 404) {
+                   MainCHK.tulisLog(" Response HTTP 404 (Not Found) saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
+                   try {
+                       String documentNumberOnTable = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
+                       if (documentNumberOnTable == null) {
+                           mariaDb.insertDataSp2dBfast(item);
+                       }
+                       mariaDb.handleAccountInquiryError(item, "404", mappingRcAe);
+                   } catch (SQLException sqlEx) {
+                       MainCHK.tulisLog("Error update DB saat AE HTTP 404: " + sqlEx.getMessage());
+                   }
+               } else if (httpCode == 508) {
+                   MainCHK.tulisLog("Response HTTP 508 saat Account Inquiry untuk doc: " + item.getDocumentNumber() + " - " + aeEx.getMessage());
+                   try {
+                       String documentNumberOnTable = mariaDb.getDataSp2dBifast(item.getDocumentNumber());
+                       if (documentNumberOnTable == null) {
+                           mariaDb.insertDataSp2dBfast(item);
+                       }
+                       mariaDb.handleAccountInquiryError(item, "508", mappingRcAe);
+                   } catch (SQLException sqlEx) {
+                       MainCHK.tulisLog("Error update DB saat AE HTTP 508: " + sqlEx.getMessage());
+                   }
+               }
+               return;
+
+          }
     }
 
         String responseCode = Utillity.safe(accountInquiryResponse.getResponseCode());
 
         boolean isAccountValid = accountInquiryResponse != null && accountInquiryResponse.isSuccess();
+        boolean isAeTimeOut =responseCode.equals("68");
+
 
         boolean isNameMatched = isAccountValid 
                 && item.getBeneficiaryName() != null 
@@ -284,19 +287,23 @@ public class ProcessBifast {
 
         boolean accountNoutFound = false;
         boolean beneficiaryBankIsnotAvailable = false;
+        boolean isAccountDormant = false;
 
         String mappingRcSpan = "";
 
         if (accountInquiryResponse.getResponseCode().equals("25")) {
             accountNoutFound = isRc25ForAccountnotFound(Utillity.safe(accountInquiryResponse.getResponseMessage()),mappingRcAe);
             if (!accountNoutFound) {
-                beneficiaryBankIsnotAvailable = true;
+                isAccountDormant = isRc25ForAccountDormant(Utillity.safe(accountInquiryResponse.getResponseMessage()),mappingRcAe);
+                if (!isAccountDormant){
+                    beneficiaryBankIsnotAvailable = true;
+                }
             }
         }
     
         mappingRcSpan = getSpanRc(responseCode,accountInquiryResponse.getResponseMessage(),mappingRcAe);
        
-        boolean isReturCode = accountNoutFound || "78".equals(responseCode);
+        boolean isReturCode = accountNoutFound ;
         boolean isFallbackSkn = "99".equals(responseCode) || !isNameMatched;
 
         if (!isNameMatched){
@@ -333,6 +340,16 @@ public class ProcessBifast {
             try {
                 mariaDb.fallbackToSkn(item);
                 mariaDb.insertAuditTrailFallbackSkn(item);
+            } catch (SQLException e) {
+                MainCHK.tulisLog(e.getMessage());
+            }
+        } else if (isAeTimeOut){
+            try {
+                String documentNumberOnTableSp2dBifast =mariaDb.getDataSp2dBifast(item.getDocumentNumber());
+                if (documentNumberOnTableSp2dBifast == null){
+                    mariaDb.insertDataSp2dBfast(item);
+                }
+                mariaDb.handleAccountInquiryErrorRcSpan(item, mappingRcSpan);
             } catch (SQLException e) {
                 MainCHK.tulisLog(e.getMessage());
             }
@@ -847,6 +864,13 @@ public class ProcessBifast {
            return false;
         }
         return true;
+    }
+    private Boolean isRc25ForAccountDormant(String responseMessage, Map<String ,BifastRcMapping> map){
+        String bifastDescription  = getBifastDescription("25", responseMessage, map);
+        if (Utillity.safe(bifastDescription).contains("78")){
+            return true;
+        }
+        return false;
     }
 
     // Method scheduler untuk memproses ulang data berstatus RGS-000 (PSR process)
