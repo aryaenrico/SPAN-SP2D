@@ -791,12 +791,12 @@ public class ServiceMariaDb {
       return rec;
 }     
     
-    public void insertPostingAeFailure(SpanSp2dStageIn stageIn, AccountInquiryResponse response ) throws SQLException{
+    public void insertPostingAeFailure(SpanSp2dStageIn stageIn, String rcSpan ) throws SQLException{
       
         Map<String,ReturnStatusAck> map_status_code = Utillity.fetchReturnStatusAck(conn);
-        ReturnStatusAck ack = map_status_code.get(response.getResponseCode());
+        ReturnStatusAck ack = map_status_code.get(rcSpan);
         SpanSp2dPosting rec = constructDataForposting(stageIn, ack);
-        rec.returnCode = response.getResponseCode();
+        rec.returnCode = rcSpan;
         insertPostingRecords(rec);
     }
 
@@ -922,8 +922,8 @@ public class ServiceMariaDb {
 
       public void updateRetrunCodeForReturProcess(SpanSp2dStageIn records) throws SQLException {
         String sql =  "UPDATE span_sp2d_stage_in SET  " +
-                "return_code = ? WHERE documentnumber = ? "+
-                "AND paymentmethod ='5'";
+                      "return_code = ? WHERE documentnumber = ? "+
+                      "AND paymentmethod ='5'";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, records.getReturnCode());
             ps.setString(2, records.getDocumentNumber());

@@ -303,7 +303,7 @@ public class ProcessBifast {
     
         mappingRcSpan = getSpanRc(responseCode,accountInquiryResponse.getResponseMessage(),mappingRcAe);
        
-        boolean isReturCode = accountNoutFound ;
+        boolean isReturCode = accountNoutFound || !isAccountDormant ;
         boolean isFallbackSkn = "99".equals(responseCode) || !isNameMatched;
 
         if (!isNameMatched){
@@ -508,7 +508,7 @@ public class ProcessBifast {
     private void executeAccountInquiryReturFlow(SpanSp2dStageIn item, AccountInquiryResponse inquiryResponse, ServiceMariaDb mariaDb, String rcSpan, BufferedWriter ackWriter) {
         MainCHK.tulisLog("Account Inquiry retur process initiated");
         SpanSp2dStageIn dataClone = item;
-        dataClone.setReturnCode(inquiryResponse.getResponseCode());
+        dataClone.setReturnCode(rcSpan);
         try{
          mariaDb.updateRetrunCodeForReturProcess(dataClone);
         } catch(SQLException  e){
@@ -531,14 +531,15 @@ public class ProcessBifast {
             default:
                 creditAccount = mariaDb.getSpanconfig().getAcctRrReksusSbsn();
         }
+
         ProsesAccountDetails prosesAccountDetails = new ProsesAccountDetails(configT24);
-       String coCode = prosesAccountDetails.getCocode(debitAccount);
+        String coCode = prosesAccountDetails.getCocode(debitAccount);
         ProsesRetur prosesRetur = new ProsesRetur(configT24);
         FundsTransferSoapResponse resp = prosesRetur.returProcess(item, debitAccount, creditAccount, transactionType,coCode);
     
         if (resp != null && resp.isSuccess()) {
             try {
-                mariaDb.insertPostingAeFailure(item, inquiryResponse);
+                mariaDb.insertPostingAeFailure(item, rcSpan);
             } catch (SQLException e) {
                 MainCHK.tulisLog("Gagal insert posting AE Failure: " + e.getMessage());
             }
