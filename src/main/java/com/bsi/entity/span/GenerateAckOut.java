@@ -132,12 +132,27 @@ public class GenerateAckOut {
       return Utillity.safe(result);
     }
 
-    public  void copyToArchiveIfExists(SpanConfig ctx,String outputFilePath, String creationDateTime) throws IOException {
+    public  void copyToArchiveIfExists(SpanConfig ctx,String outputFilePath) throws IOException {
         File source = new File(outputFilePath);
         if (!source.exists()) return;
 
+        String fileName = source.getName();
+
         String archiveDir  = ctx.getPathBo2spanHome() + ctx.getpathSpanAcknowledgeArchive();
-        String  archivePath = archiveDir + File.separator + ctx.getBankCode()+ "_SP2D_FA_" + creationDateTime + ".out";
+        String  archivePath = archiveDir + File.separator + ctx.getBankCode()+ "_SP2D_FA_" + fileName + ".out";
+
+        new File(archiveDir).mkdirs();
+        Files.copy(source.toPath(), new File(archivePath).toPath(), StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    public void createTxtAckFile(SpanConfig ctx,String outputFilePath) throws IOException{
+        File source = new File(outputFilePath);
+        if (!source.exists()) return;
+
+        String fileName = source.getName();
+
+        String archiveDir  = ctx.getPathBo2spanHome() + ctx.getpathSpanAcknowledgeArchive();
+        String  archivePath = archiveDir + File.separator + ctx.getBankCode()+ "_SP2D_FA_" + fileName + ".txt";
 
         new File(archiveDir).mkdirs();
         Files.copy(source.toPath(), new File(archivePath).toPath(), StandardCopyOption.REPLACE_EXISTING);

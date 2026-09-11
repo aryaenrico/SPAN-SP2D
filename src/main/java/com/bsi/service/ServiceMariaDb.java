@@ -1615,7 +1615,7 @@ public class ServiceMariaDb {
           if (!source.isEmpty() && source != null){
               MainCHK.tulisLog("Jumlah data yang akan di proses : "+ source.size());
               String outputPath = generateAckOut.generateAckFile(conn,spanConfig,source,map_status_code);
-              generateAckOut.copyToArchiveIfExists(spanConfig, outputPath, new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
+              generateAckOut.copyToArchiveIfExists(spanConfig, outputPath);
             for (SpanSp2dPosting data : source){
               generateAckOut.updateFlagAckBatch(conn, spanConfig, data);
            }
@@ -1647,7 +1647,7 @@ public class ServiceMariaDb {
 
           if (!source.isEmpty() && source != null){
             String outputPath = generateAckOut.generateAckFile(conn,spanConfig,source,map_status_code);
-            generateAckOut.copyToArchiveIfExists(spanConfig, outputPath, new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
+            generateAckOut.copyToArchiveIfExists(spanConfig, outputPath);
             for (SpanSp2dPosting data : source){
               generateAckOut.updateFlagAck(conn, spanConfig, data);
             }
@@ -1697,7 +1697,7 @@ public class ServiceMariaDb {
 
           if (!source.isEmpty()){
             String outputPath = generateAckOut.generateAckFile(conn,spanConfig,source,map_status_code);
-            generateAckOut.copyToArchiveIfExists(spanConfig, outputPath, new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
+            generateAckOut.copyToArchiveIfExists(spanConfig, outputPath);
             for (SpanSp2dPosting data : source){
               generateAckOut.updateFlagAckRetur(conn, spanConfig, data);
             }

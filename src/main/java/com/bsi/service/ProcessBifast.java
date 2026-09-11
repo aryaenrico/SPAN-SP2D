@@ -187,8 +187,8 @@ public class ProcessBifast {
             try {
                 GenerateAckOut mergeGenerator = new GenerateAckOut();
                 String mergedPath = mergeGenerator.mergeAckFiles(spanConfig, new ArrayList<>(ackFilePaths));
-                mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath,
-                        new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date()));
+                mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath);
+                mergeGenerator.createTxtAckFile(spanConfig,mergedPath);
             } catch (IOException e) {
                 MainCHK.tulisLog("[ACK-MERGE] Error saat merge/archive ACK files: " + e.getMessage());
             }
@@ -940,8 +940,7 @@ public class ProcessBifast {
             try {
                 GenerateAckOut mergeGenerator = new GenerateAckOut();
                 String mergedPath = mergeGenerator.mergeAckFiles(spanConfig, new ArrayList<>(ackFilePaths));
-                mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath,
-                        new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date()));
+                mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath);
             } catch (IOException e) {
                 MainCHK.tulisLog("[ACK-MERGE] Error saat merge/archive ACK files: " + e.getMessage());
             }
@@ -1019,8 +1018,7 @@ public class ProcessBifast {
             try {
                 GenerateAckOut mergeGenerator = new GenerateAckOut();
                 String mergedPath = mergeGenerator.mergeAckFiles(spanConfig, new ArrayList<>(ackFilePaths));
-                mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath,
-                        new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date()));
+                mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath);
             } catch (IOException e) {
                 MainCHK.tulisLog("[ACK-MERGE] Error saat merge/archive ACK files: " + e.getMessage());
             }
@@ -1096,8 +1094,7 @@ public class ProcessBifast {
             try {
                 GenerateAckOut mergeGenerator = new GenerateAckOut();
                 String mergedPath = mergeGenerator.mergeAckFiles(spanConfig, new ArrayList<>(ackFilePaths));
-                mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath,
-                        new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date()));
+                mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath);
             } catch (IOException e) {
                 MainCHK.tulisLog("[ACK-MERGE] Error saat merge/archive ACK files: " + e.getMessage());
             }
