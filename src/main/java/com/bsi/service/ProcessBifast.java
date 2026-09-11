@@ -506,15 +506,7 @@ public class ProcessBifast {
     }
 
     private void executeAccountInquiryReturFlow(SpanSp2dStageIn item, AccountInquiryResponse inquiryResponse, ServiceMariaDb mariaDb, String rcSpan, BufferedWriter ackWriter) {
-        MainCHK.tulisLog("Account Inquiry retur process initiated");
-        SpanSp2dStageIn dataClone = item;
-        dataClone.setReturnCode(rcSpan);
-        try{
-         mariaDb.updateRetrunCodeForReturProcess(dataClone);
-        } catch(SQLException  e){
-            MainCHK.tulisLog("Error update return code untuk sp2d dengan  documentNumber : " +  item.getDocumentNumber());
-        }
-        
+        MainCHK.tulisLog("Account Inquiry retur process initiated untuk dokumen number : "+ item.getDocumentNumber());
 
         String debitAccount = Utillity.safe(item.getAgentBankAccountNumber());
         String creditAccount="";
@@ -554,7 +546,7 @@ public class ProcessBifast {
                       mariaDb.insertDataSp2dBfast(item);
                 }
                 mariaDb.handleAccountInquiryErrorRcSpan(item, rcSpan);
-                mariaDb.updateSp2dstageinAEerror(item , inquiryResponse.getResponseCode());
+                mariaDb.updateSp2dstageinAEerror(item , rcSpan);
                 mariaDb.prosesAckRetur(item.getDocumentNumber(), ackWriter);
             } catch (Exception e) {
                 MainCHK.tulisLog("Error insert data retur AE pada tabel posting: " + e.getMessage());
