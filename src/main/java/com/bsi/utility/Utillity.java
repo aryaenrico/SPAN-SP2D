@@ -181,7 +181,6 @@ public static String extractBifastDescription (String bifastDescription) {
     if (bifastDescription == null) {
         return null;
      }
-
     Pattern pattern = Pattern.compile("([A-Z]?\\d+[A-Z]?)");
     Matcher matcher = pattern.matcher(bifastDescription);
     if (matcher.find()) {
@@ -205,6 +204,13 @@ public static String extractBifastDescription (String bifastDescription) {
                 rc.span_rc             = rs.getString("span_rc");
                 rc.description_state   =rs.getString("description_state");
                 map.put(rc.bifast_rc, rc);
+
+                String key = rc.bifast_rc;
+                if (key.equals("25")){
+                    String esbResponseMessage = extractBifastDescription(rc.bifast_description);
+                    key = key+"|"+esbResponseMessage;
+                }
+                map.put(key, rc);
             }
         }
         return map;

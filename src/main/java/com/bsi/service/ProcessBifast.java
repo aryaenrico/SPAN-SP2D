@@ -303,7 +303,7 @@ public class ProcessBifast {
     
         mappingRcSpan = getSpanRc(responseCode,accountInquiryResponse.getResponseMessage(),mappingRcAe);
        
-        boolean isReturCode = accountNoutFound || !isAccountDormant ;
+        boolean isReturCode = accountNoutFound || isAccountDormant ;
         boolean isFallbackSkn = "99".equals(responseCode) || !isNameMatched;
 
         if (!isNameMatched){
@@ -335,15 +335,9 @@ public class ProcessBifast {
                 MainCHK.tulisLog(e.getMessage());
             }
         }
-        // Case 3 : Fallback skn
-        else if (isFallbackSkn) {
-            try {
-                mariaDb.fallbackToSkn(item);
-                mariaDb.insertAuditTrailFallbackSkn(item);
-            } catch (SQLException e) {
-                MainCHK.tulisLog(e.getMessage());
-            }
-        } else if (isAeTimeOut){
+
+        //Case 4 : RC 68
+        else if (isAeTimeOut){
             try {
                 String documentNumberOnTableSp2dBifast =mariaDb.getDataSp2dBifast(item.getDocumentNumber());
                 if (documentNumberOnTableSp2dBifast == null){
@@ -354,23 +348,38 @@ public class ProcessBifast {
                 MainCHK.tulisLog(e.getMessage());
             }
         }
+        // Case 3 : Fallback skn
+        else if (isFallbackSkn) {
+            try {
+                mariaDb.fallbackToSkn(item);
+                mariaDb.insertAuditTrailFallbackSkn(item);
+            } catch (SQLException e) {
+                MainCHK.tulisLog(e.getMessage());
+            }
+        }
+
     }
 
     public String getBifastDescription(String responseCode,String responseMessage,Map<String, BifastRcMapping> rcMapping) {
      String key;
+     String result ="";
         if ("25".equals(responseCode)) {
            String errorCode = Utillity.extractBifastDescription(responseMessage);
-             key = responseCode + "|" + errorCode;
+           key = responseCode + "|" + errorCode;
         } else {
          key = responseCode;
         }
-        return rcMapping.get(key).bifast_description;
+         result  = rcMapping.get(key).bifast_description;
+        if (result != null){
+            return  result+"|";
+        }
+        return "";
      }
 
     public String getSpanRc(String responseCode,String responseMessage,Map<String, BifastRcMapping> rcMapping) {
      String key;
         if ("25".equals(responseCode)) {
-           String errorCode = Utillity.extractBifastDescription(responseMessage);
+             String errorCode = Utillity.extractBifastDescription(responseMessage);
              key = responseCode + "|" + errorCode;
         } else {
          key = responseCode;
@@ -455,6 +464,8 @@ public class ProcessBifast {
 
     private void handleCreditTransferFailure(SpanSp2dStageIn item, CreditTransferResponse ctResponse, ServiceMariaDb mariaDb, BufferedWriter ackWriter) throws SQLException {
         String respCode = Utillity.safe(ctResponse.getResponseCode());
+        String mappingRcSpan;
+
         boolean timeoutFromCi = "51".equals(respCode);
         boolean timeoutCoreFt = "57".equals(respCode);
         boolean isBeneficiaryDormant = "78".equals(respCode);
@@ -483,12 +494,22 @@ public class ProcessBifast {
         } 
         //  Failed Response dari BI-FAST (RC 25) -> Retur FT
         else if (failedResponseFromCi) {
+            MainCHK.tulisLog("Dapat Error 25 dari ci");
+            boolean ctBeneficiaryBankIsnotAvailable = false;
+            boolean ctIsAccountDormant = false;
             SpanSp2dStageIn dataClone = item;
-            String responseMessage = ctResponse.getResponseMessage().trim().toUpperCase();
-            dataClone.setReturnCode(ctResponse.getResponseCode());
-            if (responseMessage.contains("78")){
-                 MainCHK.tulisLog("account inactive");
-               dataClone.setReturnCode("78");
+
+            ctIsAccountDormant = isRc25ForAccountDormant(Utillity.safe(ctResponse.getResponseMessage()),Utillity.fetchBifastRcMappingCt(mariaDb.conn));
+            if (!ctIsAccountDormant){
+                ctBeneficiaryBankIsnotAvailable = isRc25ForBankIsMaintanance(Utillity.safe(ctResponse.getResponseMessage()),Utillity.fetchBifastRcMappingCt(mariaDb.conn));
+            }
+
+            if (ctIsAccountDormant || ctBeneficiaryBankIsnotAvailable){
+                mappingRcSpan = getSpanRc(respCode,ctResponse.getResponseMessage(),Utillity.fetchBifastRcMappingCt(mariaDb.conn));
+                MainCHK.tulisLog(mappingRcSpan);
+                dataClone.setReturnCode(mappingRcSpan);
+            }else {
+                dataClone.setReturnCode(ctResponse.getResponseCode());
             }
 
             dataClone.setReferenceNumber(ctResponse.getReferenceId());
@@ -505,7 +526,7 @@ public class ProcessBifast {
         }
     }
 
-    private void executeAccountInquiryReturFlow(SpanSp2dStageIn item, AccountInquiryResponse inquiryResponse, ServiceMariaDb mariaDb, String rcSpan, BufferedWriter ackWriter) {
+    private void executeAccountInquiryReturFlow (SpanSp2dStageIn item, AccountInquiryResponse inquiryResponse, ServiceMariaDb mariaDb, String rcSpan, BufferedWriter ackWriter) {
         MainCHK.tulisLog("Account Inquiry retur process initiated untuk dokumen number : "+ item.getDocumentNumber());
 
         String debitAccount = Utillity.safe(item.getAgentBankAccountNumber());
@@ -858,6 +879,16 @@ public class ProcessBifast {
         }
         return true;
     }
+
+    private Boolean isRc25ForBankIsMaintanance(String responseMessage, Map<String ,BifastRcMapping> map){
+        boolean result = false;
+        String bifastDescription  = getBifastDescription("25", responseMessage, map);
+        if (Utillity.safe(bifastDescription).matches(".*U17[0-9X].*")){
+            result = true;
+        }
+        return result;
+
+    }
     private Boolean isRc25ForAccountDormant(String responseMessage, Map<String ,BifastRcMapping> map){
         String bifastDescription  = getBifastDescription("25", responseMessage, map);
         if (Utillity.safe(bifastDescription).contains("78")){
@@ -941,6 +972,7 @@ public class ProcessBifast {
                 GenerateAckOut mergeGenerator = new GenerateAckOut();
                 String mergedPath = mergeGenerator.mergeAckFiles(spanConfig, new ArrayList<>(ackFilePaths));
                 mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath);
+                mergeGenerator.createTxtAckFile(spanConfig,mergedPath);
             } catch (IOException e) {
                 MainCHK.tulisLog("[ACK-MERGE] Error saat merge/archive ACK files: " + e.getMessage());
             }
@@ -1019,6 +1051,7 @@ public class ProcessBifast {
                 GenerateAckOut mergeGenerator = new GenerateAckOut();
                 String mergedPath = mergeGenerator.mergeAckFiles(spanConfig, new ArrayList<>(ackFilePaths));
                 mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath);
+                mergeGenerator.createTxtAckFile(spanConfig,mergedPath);
             } catch (IOException e) {
                 MainCHK.tulisLog("[ACK-MERGE] Error saat merge/archive ACK files: " + e.getMessage());
             }
@@ -1095,11 +1128,10 @@ public class ProcessBifast {
                 GenerateAckOut mergeGenerator = new GenerateAckOut();
                 String mergedPath = mergeGenerator.mergeAckFiles(spanConfig, new ArrayList<>(ackFilePaths));
                 mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath);
+                mergeGenerator.createTxtAckFile(spanConfig,mergedPath);
             } catch (IOException e) {
                 MainCHK.tulisLog("[ACK-MERGE] Error saat merge/archive ACK files: " + e.getMessage());
             }
         }
     }
-
-
 }

@@ -14,9 +14,9 @@ public class BifastDemo {
     public static void main(String[] args) {
         System.out.println("Start");
         //ServiceMariaDb mariaDb = new ServiceMariaDb("C:\\Users\\ven.arya\\Downloads\\Project\\2026\\SPAN\\Custom Handler\\span-custom-handler\\tesDs", "bo2span");
-        String absolutPath = "satu/dua/tiga";
+        String absolutPath = "satu/dua/tiga.out";
        File file = new File(absolutPath);
-        System.out.println(file.getName());
+        System.out.println(file.getName().replaceFirst("\\.out$",".txt"));
         System.exit(0);
 
      /*

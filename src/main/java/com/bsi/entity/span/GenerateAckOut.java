@@ -139,7 +139,7 @@ public class GenerateAckOut {
         String fileName = source.getName();
 
         String archiveDir  = ctx.getPathBo2spanHome() + ctx.getpathSpanAcknowledgeArchive();
-        String  archivePath = archiveDir + File.separator + ctx.getBankCode()+ "_SP2D_FA_" + fileName + ".out";
+        String  archivePath = archiveDir + File.separator + fileName;
 
         new File(archiveDir).mkdirs();
         Files.copy(source.toPath(), new File(archivePath).toPath(), StandardCopyOption.REPLACE_EXISTING);
@@ -149,10 +149,10 @@ public class GenerateAckOut {
         File source = new File(outputFilePath);
         if (!source.exists()) return;
 
-        String fileName = source.getName();
+        String fileName = source.getName().replaceFirst("\\.out$",".txt");
 
-        String archiveDir  = ctx.getPathBo2spanHome() + ctx.getpathSpanAcknowledgeArchive();
-        String  archivePath = archiveDir + File.separator + ctx.getBankCode()+ "_SP2D_FA_" + fileName + ".txt";
+        String archiveDir  = ctx.getPathBo2spanHome() + ctx.getPathSpanAcknowledgePut();
+        String  archivePath = archiveDir + File.separator + fileName;
 
         new File(archiveDir).mkdirs();
         Files.copy(source.toPath(), new File(archivePath).toPath(), StandardCopyOption.REPLACE_EXISTING);
