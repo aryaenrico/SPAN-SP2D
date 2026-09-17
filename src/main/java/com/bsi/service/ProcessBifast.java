@@ -518,9 +518,9 @@ public class ProcessBifast {
                 ctBeneficiaryBankIsnotAvailable = isRc25ForBankIsMaintanance(Utillity.safe(ctResponse.getResponseMessage()),Utillity.fetchBifastRcMappingCt(mariaDb.conn));
                 if (ctBeneficiaryBankIsnotAvailable){
                     MainCHK.tulisLog("Proses ct untuk sp2d dengan dokumen number :"+item.getDocumentNumber() + "Gagal karena bank lawan sedang maintanance");
+                } else if (ctIsAccountDormant){
+                    MainCHK.tulisLog("Proses ct untuk sp2d dengan dokumen number :"+item.getDocumentNumber() + "Gagal karena rekening tujuan tidak aktif");
                 }
-            }else{
-                MainCHK.tulisLog("Proses ct untuk sp2d dengan dokumen number :"+item.getDocumentNumber() + "Gagal karena rekening tujuan berstatus dormant");
             }
 
             if (ctIsAccountDormant || ctBeneficiaryBankIsnotAvailable){
