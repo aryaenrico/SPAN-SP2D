@@ -39,12 +39,16 @@ public class BifastClient {
         this.mapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES, false);
     }
 
+    // [CHANGE][2026-09-17] Setiap service meneruskan timeout dedicated-nya sendiri ke post(),
+    // bukan mengandalkan post() membaca timeout global dari config secara langsung.
     public AccountInquiryResponse accountInquiry(AccountInquiryRequest request){
-        return post(config.getEndpointAe(), request, AccountInquiryResponse.class);
+        return post(config.getEndpointAe(), request, AccountInquiryResponse.class,
+                config.getConnectTimeoutAeMs(), config.getReadTimeoutAeMs());
     }
 
     public CreditTransferResponse creditTransfer(CreditTransferRequest request){
-        return post (config.getEndpointCT(), request,CreditTransferResponse.class);
+        return post(config.getEndpointCT(), request, CreditTransferResponse.class,
+                config.getConnectTimeoutCtMs(), config.getReadTimeoutCtMs());
     }
 
     public PaymentStatusResponse transactionInquiry(PaymenStatusRequest request){
@@ -52,7 +56,8 @@ public class BifastClient {
         log.warn("Endpoint Transaction Inquiry belum dikonfigurasi/kontrak API ESB belum tersedia");
         throw new ApiClientException("Endpoint Transaction Inquiry belum dikonfigurasi di properties", -1, null);
     }
-    return post(config.getEndpointTi(), request, com.bsi.entity.bifast.transactioninquiry.PaymentStatusResponse.class);
+    return post(config.getEndpointTi(), request, com.bsi.entity.bifast.transactioninquiry.PaymentStatusResponse.class,
+            config.getConnectTimeoutTiMs(), config.getReadTimeoutTiMs());
 }
 
 
@@ -95,7 +100,9 @@ private static void disableSslVerification() {
 
 
 
-private <T> T post(String path, Object requestBody, Class<T> responseType) { 
+// [CHANGE][2026-09-17] Timeout kini diterima sebagai parameter eksplisit per service (AE/CT/TI),
+// bukan dibaca langsung dari config di dalam post(). Setiap service bisa punya nilai berbeda.
+private <T> T post(String path, Object requestBody, Class<T> responseType, int connectTimeoutMs, int readTimeoutMs) {
     String url =  path;
     HttpURLConnection conn = null;
     try {
@@ -110,8 +117,8 @@ private <T> T post(String path, Object requestBody, Class<T> responseType) {
 
         conn = (HttpURLConnection) new URL (url).openConnection();
         conn.setRequestMethod("POST");
-        conn.setConnectTimeout(config.getConnectTimeoutMs());
-        conn.setReadTimeout(config.getreadTimeoutms());
+        conn.setConnectTimeout(connectTimeoutMs);
+        conn.setReadTimeout(readTimeoutMs);
         conn.setDoOutput(true);
         conn.setRequestProperty("Content-Type", "application/json");
         conn.setRequestProperty("Accept", "application/json");

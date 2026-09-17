@@ -13,6 +13,14 @@ public class BifastConfig {
     private String apiKey;
     private Integer connectTimeoutms;
     private Integer readTimeoutms;
+    // [CHANGE][2026-09-17] Timeout dedicated per service (AE/CT/TI). Jika tidak diset di properties,
+    // getter jatuh ke timeout global (connectTimeoutms/readTimeoutms) agar backward compatible.
+    private Integer connectTimeoutAeMs;
+    private Integer readTimeoutAeMs;
+    private Integer connectTimeoutCtMs;
+    private Integer readTimeoutCtMs;
+    private Integer connectTimeoutTiMs;
+    private Integer readTimeoutTiMs;
     private String endpointCT;
     private String endpointAe;
     private String endpointTi;
@@ -60,6 +68,48 @@ public class BifastConfig {
     }
     public Integer getreadTimeoutms(){
         return this.readTimeoutms;
+    }
+
+    // [CHANGE][2026-09-17] Timeout dedicated Account Enquiry (AE). Fallback ke timeout global jika null.
+    public void setConnectTimeoutAeMs(String timeout){
+        this.connectTimeoutAeMs = timeout != null ? Integer.parseInt(timeout) : null;
+    }
+    public Integer getConnectTimeoutAeMs(){
+        return connectTimeoutAeMs != null ? connectTimeoutAeMs : connectTimeoutms;
+    }
+    public void setReadTimeoutAeMs(String timeout){
+        this.readTimeoutAeMs = timeout != null ? Integer.parseInt(timeout) : null;
+    }
+    public Integer getReadTimeoutAeMs(){
+        return readTimeoutAeMs != null ? readTimeoutAeMs : readTimeoutms;
+    }
+
+    // [CHANGE][2026-09-17] Timeout dedicated Credit Transfer (CT). Fallback ke timeout global jika null.
+    public void setConnectTimeoutCtMs(String timeout){
+        this.connectTimeoutCtMs = timeout != null ? Integer.parseInt(timeout) : null;
+    }
+    public Integer getConnectTimeoutCtMs(){
+        return connectTimeoutCtMs != null ? connectTimeoutCtMs : connectTimeoutms;
+    }
+    public void setReadTimeoutCtMs(String timeout){
+        this.readTimeoutCtMs = timeout != null ? Integer.parseInt(timeout) : null;
+    }
+    public Integer getReadTimeoutCtMs(){
+        return readTimeoutCtMs != null ? readTimeoutCtMs : readTimeoutms;
+    }
+
+    // [CHANGE][2026-09-17] Timeout dedicated Transaction/Payment Status Inquiry (TI). Fallback ke timeout global jika null.
+    public void setConnectTimeoutTiMs(String timeout){
+        this.connectTimeoutTiMs = timeout != null ? Integer.parseInt(timeout) : null;
+    }
+    public Integer getConnectTimeoutTiMs(){
+        return connectTimeoutTiMs != null ? connectTimeoutTiMs : connectTimeoutms;
+    }
+    public void setReadTimeoutTiMs(String timeout){
+        this.readTimeoutTiMs = timeout != null ? Integer.parseInt(timeout) : null;
+    }
+    public Integer getReadTimeoutTiMs(){
+        return readTimeoutTiMs != null ? readTimeoutTiMs : readTimeoutms;
     }
 
     public void setPathPropertiesBifast(PathPropertiesBifast pathPropertiesBifast){
@@ -121,6 +171,13 @@ public class BifastConfig {
          cfg.setapiKey(trimToNull(prop.getProperty("bifast.apiKey")));
          cfg.setConnectTimeoutms(trimToNull(prop.getProperty("bifast.connectTimeoutMs")));
          cfg.setreadTimeoutms(trimToNull(prop.getProperty("bifast.readTimeoutMs")));
+         // [CHANGE][2026-09-17] Timeout dedicated per service; opsional di properties, fallback ke timeout global jika tidak diisi
+         cfg.setConnectTimeoutAeMs(trimToNull(prop.getProperty("bifast.accountEnquiry.connectTimeoutMs")));
+         cfg.setReadTimeoutAeMs(trimToNull(prop.getProperty("bifast.accountEnquiry.readTimeoutMs")));
+         cfg.setConnectTimeoutCtMs(trimToNull(prop.getProperty("bifast.creditTransfer.connectTimeoutMs")));
+         cfg.setReadTimeoutCtMs(trimToNull(prop.getProperty("bifast.creditTransfer.readTimeoutMs")));
+         cfg.setConnectTimeoutTiMs(trimToNull(prop.getProperty("bifast.paymentRequest.connectTimeoutMs")));
+         cfg.setReadTimeoutTiMs(trimToNull(prop.getProperty("bifast.paymentRequest.readTimeoutMs")));
          cfg.setendpointTi(trimToNull(prop.getProperty("bifast.paymentRequest.endpointUrl")));
          cfg.setNumThread(Integer.parseInt(trimToNull(prop.getProperty("bifast.thread"))));
          cfg.setFlagName(Integer.parseInt(trimToNull(prop.getProperty("bifast.flag.name.check"))));
