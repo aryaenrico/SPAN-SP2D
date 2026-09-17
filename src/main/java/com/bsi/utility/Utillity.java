@@ -166,7 +166,7 @@ public class Utillity {
                 // handle duplicate rc 25
                 String key = rc.bifast_rc;
                 if (key.equals("25")){
-                    String esbResponseMessage = extractBifastDescription(rc.bifast_description);
+                    String esbResponseMessage = safe(extractBifastDescription(rc.bifast_description));
                     key = key+"|"+esbResponseMessage;
                 }
                 map.put(key, rc);
@@ -207,7 +207,7 @@ public static String extractBifastDescription (String bifastDescription) {
 
                 String key = rc.bifast_rc;
                 if (key.equals("25")){
-                    String esbResponseMessage = extractBifastDescription(rc.bifast_description);
+                    String esbResponseMessage = safe(extractBifastDescription(rc.bifast_description));
                     key = key+"|"+esbResponseMessage;
                 }
                 map.put(key, rc);

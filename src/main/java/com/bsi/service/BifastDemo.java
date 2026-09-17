@@ -1,12 +1,16 @@
 package com.bsi.service;
 
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.bsi.MainCHK;
 import com.bsi.config.BifastConfig;
 import com.bsi.config.T24Config;
+import com.bsi.entity.span.BifastRcMapping;
 import com.bsi.entity.span.PathPropertiesBifast;
 import com.bsi.entity.t24.AccountDetailsSoapRequest;
+import com.bsi.utility.Utillity;
 
 
 public class BifastDemo {
@@ -15,6 +19,53 @@ public class BifastDemo {
         System.out.println("Start");
         //ServiceMariaDb mariaDb = new ServiceMariaDb("C:\\Users\\ven.arya\\Downloads\\Project\\2026\\SPAN\\Custom Handler\\span-custom-handler\\tesDs", "bo2span");
         String absolutPath = "satu/dua/tiga.out";
+
+        Map<String, BifastRcMapping> map = new HashMap<>();
+
+
+
+        BifastRcMapping rc = new BifastRcMapping();
+        rc.id                  = 2L;
+        rc.service_type        = "CREDIT_TRANSFER";
+        rc.bifast_rc           = "25";
+        rc.bifast_description  = "";
+        rc.span_rc             = "AC0001";
+        rc.description_state   ="DESKRIPTION";
+
+
+        String key = rc.bifast_rc;
+        System.out.println("Key1 : "+key);
+        if (key.equals("25")){
+            String esbResponseMessage = Utillity.safe(Utillity.extractBifastDescription(rc.bifast_description));
+            key = "25|"+esbResponseMessage;
+        }
+        map.put(key,rc);
+
+
+        BifastRcMapping rc2 = new BifastRcMapping();
+        rc2.id                  = 2L;
+        rc2.service_type        = "CREDIT_TRANSFER";
+        rc2.bifast_rc           = "25";
+        rc2.bifast_description  = "U999";
+        rc2.span_rc             = "AC0001";
+        rc2.description_state   ="DESKRIPTION";
+
+
+      key = rc2.bifast_rc;
+        System.out.println("Key 2: "+key);
+        if (key.equals("25")){
+            String esbResponseMessage = Utillity.safe(Utillity.extractBifastDescription(rc2.bifast_description));
+            key = "25|"+esbResponseMessage;
+        }
+        map.put(key,rc2);
+
+
+
+        for (String data : map.keySet()){
+            System.out.println(data);
+        }
+
+
         //File file = new File(absolutPath);
         //System.out.println(file.getName().replaceFirst("\\.out$",".txt"));
         System.exit(0);

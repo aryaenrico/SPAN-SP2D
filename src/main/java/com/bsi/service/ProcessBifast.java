@@ -38,7 +38,6 @@ import com.bsi.utility.RequestIdGenerator;
 import com.bsi.utility.Utillity;
 
 
-
 public class ProcessBifast {
 
     // [IMPROVEMENT][2026-08-11] Path & PropName dinamis dengan fallback ke Environment Variables
@@ -371,30 +370,33 @@ public class ProcessBifast {
     }
 
     public String getBifastDescription(String responseCode,String responseMessage,Map<String, BifastRcMapping> rcMapping) {
-     String key;
+     String key="";
      String result ="";
         if ("25".equals(responseCode)) {
-           String errorCode = Utillity.extractBifastDescription(responseMessage);
+           String errorCode = Utillity.safe(Utillity.extractBifastDescription(responseMessage));
            key = responseCode + "|" + errorCode;
-        } else {
-         key = responseCode;
         }
          result  = rcMapping.get(key).bifast_description;
-        if (result != null){
-            return  result+"|";
-        }
-        return "";
+        return result;
      }
 
     public String getSpanRc(String responseCode,String responseMessage,Map<String, BifastRcMapping> rcMapping) {
      String key;
+     String result= "";
         if ("25".equals(responseCode)) {
-             String errorCode = Utillity.extractBifastDescription(responseMessage);
+             String errorCode = Utillity.safe(Utillity.extractBifastDescription(responseMessage));
              key = responseCode + "|" + errorCode;
+             result = rcMapping.get(key).span_rc;
+             if (result == null){
+                 key = responseCode + "|" ;
+                 result = rcMapping.get(key).span_rc;
+             }
         } else {
          key = responseCode;
+            result = rcMapping.get(key).span_rc;
         }
-        return rcMapping.get(key).span_rc;
+
+        return result;
      }
 
     private void executeCreditTransferFlow(SpanSp2dStageIn item, ServiceMariaDb mariaDb, BufferedWriter ackWriter) {
@@ -478,7 +480,6 @@ public class ProcessBifast {
 
         boolean timeoutFromCi = "51".equals(respCode);
         boolean timeoutCoreFt = "57".equals(respCode);
-        boolean isBeneficiaryDormant = "78".equals(respCode);
         boolean corePostingFailed = "05".equals(respCode);
         boolean failedResponseFromCi = "25".equals(respCode);
 
@@ -504,36 +505,39 @@ public class ProcessBifast {
         } 
         //  Failed Response dari BI-FAST (RC 25) -> Retur FT
         else if (failedResponseFromCi) {
-            MainCHK.tulisLog("Dapat Error 25 dari ci");
-            boolean ctBeneficiaryBankIsnotAvailable = false;
+            MainCHK.tulisLog("Mendapat rc 25 saat proces ct");
+            MainCHK.tulisLog("Dengan response message : "+ctResponse.getResponseMessage());
+
             boolean ctIsAccountDormant = false;
+            boolean ctBeneficiaryBankIsnotAvailable = false;
+
             SpanSp2dStageIn dataClone = item;
 
             ctIsAccountDormant = isRc25ForAccountDormant(Utillity.safe(ctResponse.getResponseMessage()),Utillity.fetchBifastRcMappingCt(mariaDb.conn));
             if (!ctIsAccountDormant){
                 ctBeneficiaryBankIsnotAvailable = isRc25ForBankIsMaintanance(Utillity.safe(ctResponse.getResponseMessage()),Utillity.fetchBifastRcMappingCt(mariaDb.conn));
+                if (ctBeneficiaryBankIsnotAvailable){
+                    MainCHK.tulisLog("Proses ct untuk sp2d dengan dokumen number :"+item.getDocumentNumber() + "Gagal karena bank lawan sedang maintanance");
+                }
+            }else{
+                MainCHK.tulisLog("Proses ct untuk sp2d dengan dokumen number :"+item.getDocumentNumber() + "Gagal karena rekening tujuan berstatus dormant");
             }
 
             if (ctIsAccountDormant || ctBeneficiaryBankIsnotAvailable){
                 mappingRcSpan = getSpanRc(respCode,ctResponse.getResponseMessage(),Utillity.fetchBifastRcMappingCt(mariaDb.conn));
-                MainCHK.tulisLog(mappingRcSpan);
                 dataClone.setReturnCode(mappingRcSpan);
             }else {
-                dataClone.setReturnCode(ctResponse.getResponseCode());
+                mappingRcSpan = getSpanRc(respCode,ctResponse.getResponseMessage(),Utillity.fetchBifastRcMappingCt(mariaDb.conn));
+                MainCHK.tulisLog("Proses ct untuk sp2d dengan dokumen number :"+item.getDocumentNumber() + "Gagal proses");
+                MainCHK.tulisLog("dengan Rc : "+ctResponse.getResponseCode() + "dan response message : " + ctResponse.getResponseMessage() + " yang belum termapping");
+                MainCHK.tulisLog("Dan akan di mapping menjadi system error perbankan");
+                dataClone.setReturnCode(mappingRcSpan);
             }
-
             dataClone.setReferenceNumber(ctResponse.getReferenceId());
             mariaDb.updateErrorDataForReturProcess(dataClone);
             executeTransactionRetur(dataClone, mariaDb, ackWriter);
         }
-        else if (isBeneficiaryDormant) {
-            MainCHK.tulisLog("Failed CT: Account Inactive/Dormant (RC 78) untuk doc: " + item.getDocumentNumber() + ". Melakukan proses retur FT.");
-            SpanSp2dStageIn dataClone = item;
-            dataClone.setReturnCode(ctResponse.getResponseCode());
-            dataClone.setReferenceNumber(ctResponse.getReferenceId());
 
-            executeTransactionRetur(dataClone, mariaDb, ackWriter);
-        }
     }
 
     private void executeAccountInquiryReturFlow (SpanSp2dStageIn item, AccountInquiryResponse inquiryResponse, ServiceMariaDb mariaDb, String rcSpan, BufferedWriter ackWriter) {
