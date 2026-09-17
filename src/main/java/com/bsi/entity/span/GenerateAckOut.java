@@ -71,10 +71,7 @@ public class GenerateAckOut {
     }
 
 
-    // [CHANGE][2026-09-08] Arsitektur baru: 1 dedicated file per thread dengan continuous append.
-    // Method ini dipanggil SEKALI saat thread dimulai untuk membuat file ACK milik thread tersebut.
-    // Nama file menggunakan UUID (tanpa hyphen) untuk menjamin keunikan global tanpa dependensi pada
-    // granularitas timestamp maupun thread lifecycle, sesuai standar dokumen keuangan.
+    // 1 dedicated file per thread dengan continuous append.
     public String createDedicatedAckFilePath(SpanConfig config) {
         String creationDateTime = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
         String uniqueId = UUID.randomUUID().toString().replace("-", "");
@@ -86,9 +83,7 @@ public class GenerateAckOut {
         return outputPath;
     }
 
-    // [CHANGE][2026-09-08] Arsitektur baru: append baris ACK ke dedicated writer yang sudah dibuka.
-    // Tidak membuat file baru — writer dibuka oleh thread di awal dan ditutup di finally block thread.
-    // flush() dipanggil setelah setiap item agar data tidak tertahan di buffer jika thread mati mendadak.
+    //Arsitektur baru: append baris ACK ke dedicated writer yang sudah dibuka.
     public void appendAckLines(BufferedWriter bw, Connection conn, List<SpanSp2dPosting> rows, Map<String, ReturnStatusAck> statusAckMap) throws IOException {
         String currentDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
         for (SpanSp2dPosting row : rows) {
@@ -134,7 +129,8 @@ public class GenerateAckOut {
 
     public  void copyToArchiveIfExists(SpanConfig ctx,String outputFilePath) throws IOException {
         File source = new File(outputFilePath);
-        if (!source.exists()) return;
+        // [CHANGE][2026-09-15] Lewati file yang tidak ada atau kosong; tidak ada yang perlu di-archive
+        if (!source.exists() || source.length() == 0) return;
 
         String fileName = source.getName();
 
@@ -147,7 +143,8 @@ public class GenerateAckOut {
 
     public void createTxtAckFile(SpanConfig ctx,String outputFilePath) throws IOException{
         File source = new File(outputFilePath);
-        if (!source.exists()) return;
+        // [CHANGE][2026-09-15] Lewati file yang tidak ada atau kosong; tidak ada yang perlu di-copy
+        if (!source.exists() || source.length() == 0) return;
 
         String fileName = source.getName().replaceFirst("\\.out$",".txt");
 
@@ -161,7 +158,13 @@ public class GenerateAckOut {
     // [CHANGE][2026-09-08] Merge file ACK per-thread menjadi satu file tunggal setelah semua thread selesai.
     // Dipanggil dari main thread (single-thread) sehingga tidak ada race condition.
     // File individual dihapus setelah berhasil di-merge; hanya file merged yang di-archive.
+    // [CHANGE][2026-09-15] Return null jika tidak ada konten untuk ditulis; tidak membuat file kosong.
     public String mergeAckFiles(SpanConfig config, List<String> filePaths) throws IOException {
+        if (filePaths == null || filePaths.isEmpty()) {
+            MainCHK.tulisLog("[ACK-MERGE] Tidak ada file ACK untuk di-merge, proses dilewati.");
+            return null;
+        }
+
         String creationDateTime = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
         String fileName = config.getBankCode() + "_SP2D_FA_" + creationDateTime + ".out";
         String outputDir = config.getPathBo2spanHome() + config.getPathSpanAcknowledgePut();
@@ -169,11 +172,13 @@ public class GenerateAckOut {
         String mergedPath = outputDir + File.separator + fileName;
 
         MainCHK.tulisLog("[ACK-MERGE] Memulai merge " + filePaths.size() + " file ACK ke: " + mergedPath);
+        boolean hasContent = false;
         try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(mergedPath)))) {
             for (String filePath : filePaths) {
                 File f = new File(filePath);
-                if (!f.exists()) {
-                    MainCHK.tulisLog("[ACK-MERGE] File tidak ditemukan, dilewati: " + filePath);
+                if (!f.exists() || f.length() == 0) {
+                    MainCHK.tulisLog("[ACK-MERGE] File kosong/tidak ditemukan, dilewati: " + filePath);
+                    f.delete();
                     continue;
                 }
                 try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(f)))) {
@@ -181,11 +186,18 @@ public class GenerateAckOut {
                     while ((line = br.readLine()) != null) {
                         bw.write(line);
                         bw.newLine();
+                        hasContent = true;
                     }
                 }
                 f.delete();
                 MainCHK.tulisLog("[ACK-MERGE] File thread dihapus setelah merge: " + filePath);
             }
+        }
+
+        if (!hasContent) {
+            new File(mergedPath).delete();
+            MainCHK.tulisLog("[ACK-MERGE] Tidak ada konten, file merged dihapus: " + mergedPath);
+            return null;
         }
         MainCHK.tulisLog("[ACK-MERGE] Merge selesai -> " + mergedPath);
         return mergedPath;
@@ -223,7 +235,7 @@ public class GenerateAckOut {
                 paramRR1 = ctx.getAcctRpkbunGaji();
                 paramRR2 = ctx.getAcctRpkbunNonGaji();
                 paramInclude1 =ctx.getAcctRrReksusSbsn();
-                paramInclude2 = ctx.getAcctRpkbunNonGaji();
+                paramInclude2 = ctx.getAcctReksusSbsn();
         }
 
         try (PreparedStatement ps = conn.prepareStatement(sql)) {

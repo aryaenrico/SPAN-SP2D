@@ -125,12 +125,9 @@ public class ProcessBifast {
                 }
             }
         });
+
         Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-        // [CHANGE][2026-09-08] Arsitektur baru: setiap thread membuka 1 dedicated ACK file saat start
-        // dan melakukan continuous append ke file tersebut sepanjang thread berjalan. File ditutup
-        // dan di-archive di finally block thread, bukan per-item. Hal ini mengeliminasi race condition
-        // akibat pembuatan file baru di setiap pemanggilan generateAckFile pada kondisi multi-thread.
         for (int i = 1; i <= numThreads; i++) {
             final int threadId = i;
             executor.submit(() -> {
@@ -141,8 +138,8 @@ public class ProcessBifast {
                 String ackFilePath = null;
                 BufferedWriter ackWriter = null;
                 try {
+                    // arsitektur penulisaan text file megikuti arsitektur yang ada pada T24.
                     ackFilePath = ackGenerator.createDedicatedAckFilePath(threadMariaDb.getSpanconfig());
-                    ackFilePaths.add(ackFilePath);
                     ackWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(ackFilePath, true)));
                     SpanSp2dStageIn item;
                     while ((item = taskQueue.poll()) != null) {
@@ -158,6 +155,16 @@ public class ProcessBifast {
                             ackWriter.close();
                         } catch (IOException e) {
                             MainCHK.tulisLog("[WORKER-" + threadId + "] Error menutup ACK writer: " + e.getMessage());
+                        }
+                    }
+                    // [CHANGE][2026-09-15] Hanya masukkan ke koleksi jika file berisi data; hapus file kosong
+                    if (ackFilePath != null) {
+                        File ackFile = new File(ackFilePath);
+                        if (ackFile.exists() && ackFile.length() > 0) {
+                            ackFilePaths.add(ackFilePath);
+                        } else {
+                            ackFile.delete();
+                            MainCHK.tulisLog("[WORKER-" + threadId + "] File ACK kosong dihapus: " + ackFilePath);
                         }
                     }
                     try {
@@ -187,8 +194,11 @@ public class ProcessBifast {
             try {
                 GenerateAckOut mergeGenerator = new GenerateAckOut();
                 String mergedPath = mergeGenerator.mergeAckFiles(spanConfig, new ArrayList<>(ackFilePaths));
-                mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath);
-                mergeGenerator.createTxtAckFile(spanConfig,mergedPath);
+                // [CHANGE][2026-09-15] mergeAckFiles return null jika tidak ada konten — skip archive & txt
+                if (mergedPath != null) {
+                    mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath);
+                    mergeGenerator.createTxtAckFile(spanConfig, mergedPath);
+                }
             } catch (IOException e) {
                 MainCHK.tulisLog("[ACK-MERGE] Error saat merge/archive ACK files: " + e.getMessage());
             }
@@ -928,7 +938,6 @@ public class ProcessBifast {
                BufferedWriter ackWriter = null;
                try{
                  ackFilePath = ackGenerator.createDedicatedAckFilePath(threadMariaDb.getSpanconfig());
-                 ackFilePaths.add(ackFilePath);
                  ackWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(ackFilePath, true)));
                  SpanSp2dStageIn item;
                  while((item = taskQueue.poll())!= null){
@@ -946,6 +955,16 @@ public class ProcessBifast {
                     MainCHK.tulisLog("[WORKER-" + thread + "] Error membuka dedicated ACK file: " + e.getMessage());
                 } finally{
                     if (ackWriter != null) { try { ackWriter.close(); } catch (IOException e) {} }
+                    // [CHANGE][2026-09-15] Hanya masukkan ke koleksi jika file berisi data; hapus file kosong
+                    if (ackFilePath != null) {
+                        File ackFile = new File(ackFilePath);
+                        if (ackFile.exists() && ackFile.length() > 0) {
+                            ackFilePaths.add(ackFilePath);
+                        } else {
+                            ackFile.delete();
+                            MainCHK.tulisLog("[WORKER-" + thread + "] File ACK kosong dihapus: " + ackFilePath);
+                        }
+                    }
                     try{
                      threadMariaDb.close();
                     }catch(Exception e ){
@@ -971,8 +990,11 @@ public class ProcessBifast {
             try {
                 GenerateAckOut mergeGenerator = new GenerateAckOut();
                 String mergedPath = mergeGenerator.mergeAckFiles(spanConfig, new ArrayList<>(ackFilePaths));
-                mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath);
-                mergeGenerator.createTxtAckFile(spanConfig,mergedPath);
+                // [CHANGE][2026-09-15] mergeAckFiles return null jika tidak ada konten — skip archive & txt
+                if (mergedPath != null) {
+                    mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath);
+                    mergeGenerator.createTxtAckFile(spanConfig, mergedPath);
+                }
             } catch (IOException e) {
                 MainCHK.tulisLog("[ACK-MERGE] Error saat merge/archive ACK files: " + e.getMessage());
             }
@@ -1011,7 +1033,6 @@ public class ProcessBifast {
                BufferedWriter ackWriter = null;
                try{
                  ackFilePath = ackGenerator.createDedicatedAckFilePath(threadMariaDb.getSpanconfig());
-                 ackFilePaths.add(ackFilePath);
                  ackWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(ackFilePath, true)));
                  SpanSp2dStageIn item;
                  while((item = taskQueue.poll())!= null){
@@ -1027,6 +1048,16 @@ public class ProcessBifast {
                     MainCHK.tulisLog("[WORKER-" + thread + "] Error membuka dedicated ACK file: " + e.getMessage());
                 } finally{
                     if (ackWriter != null) { try { ackWriter.close(); } catch (IOException e) {} }
+                    // [CHANGE][2026-09-15] Hanya masukkan ke koleksi jika file berisi data; hapus file kosong
+                    if (ackFilePath != null) {
+                        File ackFile = new File(ackFilePath);
+                        if (ackFile.exists() && ackFile.length() > 0) {
+                            ackFilePaths.add(ackFilePath);
+                        } else {
+                            ackFile.delete();
+                            MainCHK.tulisLog("[WORKER-" + thread + "] File ACK kosong dihapus: " + ackFilePath);
+                        }
+                    }
                     try{
                      threadMariaDb.close();
                     }catch(Exception e ){
@@ -1050,8 +1081,11 @@ public class ProcessBifast {
             try {
                 GenerateAckOut mergeGenerator = new GenerateAckOut();
                 String mergedPath = mergeGenerator.mergeAckFiles(spanConfig, new ArrayList<>(ackFilePaths));
-                mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath);
-                mergeGenerator.createTxtAckFile(spanConfig,mergedPath);
+                // [CHANGE][2026-09-15] mergeAckFiles return null jika tidak ada konten — skip archive & txt
+                if (mergedPath != null) {
+                    mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath);
+                    mergeGenerator.createTxtAckFile(spanConfig, mergedPath);
+                }
             } catch (IOException e) {
                 MainCHK.tulisLog("[ACK-MERGE] Error saat merge/archive ACK files: " + e.getMessage());
             }
@@ -1088,7 +1122,6 @@ public class ProcessBifast {
                BufferedWriter ackWriter = null;
                try{
                  ackFilePath = ackGenerator.createDedicatedAckFilePath(threadMariaDb.getSpanconfig());
-                 ackFilePaths.add(ackFilePath);
                  ackWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(ackFilePath, true)));
                  SpanSp2dStageIn item;
                  while((item = taskQueue.poll())!= null){
@@ -1104,6 +1137,16 @@ public class ProcessBifast {
                     MainCHK.tulisLog("[WORKER-" + thread + "] Error membuka dedicated ACK file: " + e.getMessage());
                 } finally{
                     if (ackWriter != null) { try { ackWriter.close(); } catch (IOException e) {} }
+                    // [CHANGE][2026-09-15] Hanya masukkan ke koleksi jika file berisi data; hapus file kosong
+                    if (ackFilePath != null) {
+                        File ackFile = new File(ackFilePath);
+                        if (ackFile.exists() && ackFile.length() > 0) {
+                            ackFilePaths.add(ackFilePath);
+                        } else {
+                            ackFile.delete();
+                            MainCHK.tulisLog("[WORKER-" + thread + "] File ACK kosong dihapus: " + ackFilePath);
+                        }
+                    }
                     try{
                      threadMariaDb.close();
                     }catch(Exception e ){
@@ -1127,8 +1170,11 @@ public class ProcessBifast {
             try {
                 GenerateAckOut mergeGenerator = new GenerateAckOut();
                 String mergedPath = mergeGenerator.mergeAckFiles(spanConfig, new ArrayList<>(ackFilePaths));
-                mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath);
-                mergeGenerator.createTxtAckFile(spanConfig,mergedPath);
+                // [CHANGE][2026-09-15] mergeAckFiles return null jika tidak ada konten — skip archive & txt
+                if (mergedPath != null) {
+                    mergeGenerator.copyToArchiveIfExists(spanConfig, mergedPath);
+                    mergeGenerator.createTxtAckFile(spanConfig, mergedPath);
+                }
             } catch (IOException e) {
                 MainCHK.tulisLog("[ACK-MERGE] Error saat merge/archive ACK files: " + e.getMessage());
             }

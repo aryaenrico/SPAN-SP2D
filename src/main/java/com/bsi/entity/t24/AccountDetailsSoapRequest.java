@@ -16,8 +16,6 @@ public class AccountDetailsSoapRequest {
     @XmlElement(name = "IDIACCOUNTCMSType")
     public IdiAccountCmsType idiAccountCmsType = new IdiAccountCmsType();
 
-    // ------------------------------------------------------------------
-
     @XmlType(name = "IdiAccountCmsTypeReq")
     @XmlAccessorType(XmlAccessType.FIELD)
     public static class IdiAccountCmsType {
