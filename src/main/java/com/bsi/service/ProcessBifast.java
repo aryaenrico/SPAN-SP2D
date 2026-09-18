@@ -463,6 +463,7 @@ public class ProcessBifast {
             MainCHK.tulisLog("Proses ct selesai dengan Response Code : " + ctResponse.getResponseCode());
           
             if (ctResponse.isSuccess()) {
+                mariaDb.insertEndToEndIdAfterCtSuccess(item,ctResponse.getEndToEndId());
                 mariaDb.postingMessageAfterCt(item, ctResponse);
                 mariaDb.prosesAck(item, ackWriter);
             } else {

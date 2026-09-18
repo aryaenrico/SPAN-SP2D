@@ -509,7 +509,7 @@ public static String extractBifastDescription (String bifastDescription) {
                " VALUES (?)";
     }
 
-     public static String insertDataSp2dBifastCtTimeout(){
+     public static String insertDataSp2dBifastDocEndToEndId(){
         return "INSERT INTO span_sp2d_bifast_data "+
                "(document_number,end_to_end_id) "+
                " VALUES (?,?)";

@@ -1115,8 +1115,8 @@ public class ServiceMariaDb {
     }
    }
 
-     public void insertDataSp2dBfastCtTimeout(SpanSp2dStageIn item , String endToEndId)throws SQLException{
-    String sql  = Utillity.insertDataSp2dBifastCtTimeout();
+   public void insertDataSp2dBfastCtTimeout(SpanSp2dStageIn item , String endToEndId)throws SQLException{
+    String sql  = Utillity.insertDataSp2dBifastDocEndToEndId();
     try(PreparedStatement ps = conn.prepareStatement(sql)){
         ps.setString(1, item.getDocumentNumber());
         ps.setString(2, endToEndId);
@@ -1127,6 +1127,21 @@ public class ServiceMariaDb {
                 MainCHK.tulisLog("insert data sp2dBifast gagal pada span_sp2d_stage_in untuk doc: " + item.getDocumentNumber());
             }
     }
+   }
+
+   public void insertEndToEndIdAfterCtSuccess(SpanSp2dStageIn item , String endToEndId) throws  SQLException {
+        String sql = Utillity.insertDataSp2dBifastDocEndToEndId();
+        try(PreparedStatement ps = conn.prepareStatement(sql)){
+            ps.setString(1, item.getDocumentNumber());
+            ps.setString(2, endToEndId);
+            int updated = ps.executeUpdate();
+            if (updated > 0){
+                MainCHK.tulisLog("Insert data EndToEndId pada tabel span_sp2d_bifast_data sukses untuk document number : " + item.getDocumentNumber());
+                MainCHK.tulisLog("Dan value EndToEndId : " +  endToEndId);
+            }else{
+                MainCHK.tulisLog("Insert data EndToEndId pada tabel span_sp2d_bifast_data gagal untuk document number : " + item.getDocumentNumber());
+            }
+        }
    }
 
   public void handleAccountInquiryError(SpanSp2dStageIn item, String responseCode, Map<String,BifastRcMapping> mappingRcAe) throws SQLException{
